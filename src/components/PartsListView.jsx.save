@@ -1,0 +1,949 @@
+
+
+import React, { useState, useEffect } from 'react';
+import { sheetsService } from '../services/sheetsService';
+import './PartsListView.css';
+
+const EditModal = ({ part, onClose, onSubmit, currentUser }) => {
+  const [location, setLocation] = useState('');
+  const [statusA, setStatusA] = useState('');
+  const [statusB, setStatusB] = useState('');
+  const [notes, setNotes] = useState('');
+  const [statusAOptions, setStatusAOptions] = useState([]);
+  const [statusBOptions, setStatusBOptions] = useState([]);
+  const [locationOptions, setLocationOptions] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const restrictedStatusBItems = ['FRAT/送り状貼付け済み', 'FRATのみ貼付け済み', '送り状のみ貼付け済み'];
+  const allowedStatusAForRestrictedB = ['使用済みパーツ', 'その他', '未使用返却', 'DOA'];
+
+  useEffect(() => {
+    loadMasters();
+  }, []);
+
+  useEffect(() => {
+    if (part) {
+      setLocation(`${part.building}-${part.floor}-${part.area}_${part.pillar}(${part.category})`);
+      setStatusA(part.statusA || '');
+      setStatusB(part.statusB || '');
+      setNotes(part.notes || '');
+    }
+  }, [part]);
+
+  const loadMasters = async () => {
+    try {
+      console.log('📥 Loading masters...');
+      const statusesA = await sheetsService.getStatusA();
+      const statusesB = await sheetsService.getStatusB();
+      const locations = await sheetsService.getLocationMaster();
+      
+      console.log('✅ Loaded - StatusA:', statusesA.length, 'StatusB:', statusesB.length, 'Locations:', locations.length);
+      
+      setStatusAOptions(statusesA);
+      setStatusBOptions(statusesB);
+      setLocationOptions(locations);
+      setLoading(false);
+    } catch (error) {
+      console.error('❌ Error loading masters:', error);
+      setLoading(false);
+    }
+  };
+
+  const isStatusBDisabled = (statusBItem) => {
+    if (!restrictedStatusBItems.includes(statusBItem)) {
+      return false;
+    }
+    return !allowedStatusAForRestrictedB.includes(statusA);
+  };
+
+  const parseLocation = (locationString) => {
+    const regex = /^([A-Z0-9]+)-(\d+[A-Z]?)-([^_]+)_([A-Z0-9]+)\(([^)]+)\)$/;
+    const match = locationString.match(regex);
+    if (match) {
+      return {
+        building: match[1],
+        floor: match[2],
+        area: match[3],
+        pillar: match[4],
+        category: match[5]
+      };
+    }
+    return null;
+  };
+
+  const handleConfirm = () => {
+    if (!location || !statusA || !statusB) {
+      alert('必須フィールドを入力してください');
+      return;
+    }
+
+    const parsed = parseLocation(location);
+    if (!parsed) {
+      alert('場所のフォーマットが正しくありません');
+      return;
+    }
+
+    const payload = {
+      rowIndex: part.rowIndex,
+      serial: part.serial,
+      building: parsed.building,
+      floor: parsed.floor,
+      area: parsed.area,
+      pillar: parsed.pillar,
+      category: parsed.category,
+      statusA: statusA,
+      statusB: statusB,
+      notes: notes,
+      user: currentUser?.userId || 'Unknown'
+    };
+
+    console.log('📤 Sending edit payload:', payload);
+    onSubmit(payload);
+  };
+
+  if (!part) {
+    return null;
+  }
+
+  return (
+    <div className="modal-overlay" onClick={(e) => {
+      if (e.target === e.currentTarget) {
+        onClose();
+      }
+    }}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <h3>パーツ編集</h3>
+        <p>シリアル: <strong>{part.serial}</strong></p>
+        <p style={{ fontSize: '12px', color: '#666' }}>変更者: {currentUser?.userId || 'Unknown'}</p>
+
+        {loading ? (
+          <p>マスタデータを読み込み中...</p>
+        ) : (
+          <>
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }}>場所</label>
+              <select 
+                value={location} 
+                onChange={(e) => {
+                  console.log('📍 Location changed:', e.target.value);
+                  setLocation(e.target.value);
+                }}
+                style={{ width: '100%', padding: '8px', fontSize: '14px', border: '1px solid #ddd', borderRadius: '4px' }}
+              >
+                <option value="">選択してください</option>
+                {locationOptions.length > 0 ? (
+                  locationOptions.map((loc, index) => (
+                    <option key={index} value={loc}>{loc}</option>
+                  ))
+                ) : (
+                  <option disabled>読み込み中...</option>
+                )}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }}>ステータスA</label>
+              <select 
+                value={statusA} 
+                onChange={(e) => setStatusA(e.target.value)}
+                style={{ width: '100%', padding: '8px', fontSize: '14px', border: '1px solid #ddd', borderRadius: '4px' }}
+              >
+                <option value="">選択してください</option>
+                {statusAOptions.map((status, index) => (
+                  <option key={index} value={status}>{status}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }}>ステータスB</label>
+              <select 
+                value={statusB} 
+                onChange={(e) => setStatusB(e.target.value)}
+                style={{ width: '100%', padding: '8px', fontSize: '14px', border: '1px solid #ddd', borderRadius: '4px' }}
+                disabled={statusA === ''}
+              >
+                <option value="">選択してください</option>
+                {statusBOptions.map((status, index) => (
+                  <option key={index} value={status} disabled={isStatusBDisabled(status)}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }}>備考</label>
+              <textarea 
+                value={notes} 
+                onChange={(e) => setNotes(e.target.value)}
+                style={{ width: '100%', padding: '8px', fontSize: '14px', minHeight: '60px', border: '1px solid #ddd', borderRadius: '4px', fontFamily: 'inherit' }}
+                placeholder="備考があればここに入力"
+              />
+            </div>
+          </>
+        )}
+
+        <div className="modal-buttons">
+          <button onClick={handleConfirm} style={{ flex: 1, padding: '10px 15px', backgroundColor: '#5B6FE0', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+            更新
+          </button>
+          <button onClick={onClose} style={{ flex: 1, padding: '10px 15px', backgroundColor: '#ccc', color: '#333', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+            キャンセル
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const DetailModal = ({ part, onClose }) => {
+  const formatTimestamp = (isoString) => {
+    try {
+      const date = new Date(isoString);
+      return date.toLocaleString('ja-JP', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+    } catch (e) {
+      return isoString;
+    }
+  };
+
+  const formatChangeHistory = (history) => {
+    if (!history || !Array.isArray(history) || history.length === 0) {
+      return null;
+    }
+
+    const sortedHistory = [...history].reverse();
+
+    return (
+      <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '2px solid #eee' }}>
+        <h4 style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '12px', color: '#333' }}>
+          📋 変更履歴
+        </h4>
+        <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+          {sortedHistory.map((change, index) => (
+            <div 
+              key={index}
+              style={{
+                marginBottom: '16px',
+                padding: '12px',
+                backgroundColor: '#f9f9f9',
+                borderLeft: '3px solid #5B6FE0',
+                borderRadius: '4px',
+                fontSize: '12px'
+              }}
+            >
+              <div style={{ marginBottom: '8px', fontWeight: '600', color: '#333' }}>
+                📅 {formatTimestamp(change.timestamp)} - <span style={{ color: '#5B6FE0' }}>{change.changedBy}</span> が更新
+              </div>
+              
+              {change.changes && (
+                <div style={{ color: '#666', lineHeight: '1.6' }}>
+                  {change.changes.location && (
+                    <div style={{ marginBottom: '4px' }}>
+                      📍 ロケーション: 
+                      <span style={{ color: '#d9534f' }}> {change.changes.location.old}</span>
+                      {' → '}
+                      <span style={{ color: '#5cb85c' }}>{change.changes.location.new}</span>
+                    </div>
+                  )}
+                  
+                  {change.changes.statusA && (
+                    <div style={{ marginBottom: '4px' }}>
+                      🔵 ステータスA: 
+                      <span style={{ color: '#d9534f' }}> {change.changes.statusA.old}</span>
+                      {' → '}
+                      <span style={{ color: '#5cb85c' }}>{change.changes.statusA.new}</span>
+                    </div>
+                  )}
+                  
+                  {change.changes.statusB && (
+                    <div style={{ marginBottom: '4px' }}>
+                      🟠 ステータスB: 
+                      <span style={{ color: '#d9534f' }}> {change.changes.statusB.old}</span>
+                      {' → '}
+                      <span style={{ color: '#5cb85c' }}>{change.changes.statusB.new}</span>
+                    </div>
+                  )}
+                  
+                  {change.changes.notes && (
+                    <div style={{ marginBottom: '4px' }}>
+                      📝 備考: 
+                      <span style={{ color: '#d9534f' }}> {change.changes.notes.old || '(なし)'}</span>
+                      {' → '}
+                      <span style={{ color: '#5cb85c' }}>{change.changes.notes.new || '(なし)'}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div 
+        className="modal-content detail-modal" 
+        onClick={e => e.stopPropagation()}
+        style={{ maxHeight: '85vh', overflowY: 'auto' }}
+      >
+        <div className="detail-header">
+          <h3>パーツ詳細情報</h3>
+          <button className="close-btn" onClick={onClose}>✕</button>
+        </div>
+        <div className="detail-body">
+          <div className="detail-row">
+            <span className="detail-label">シリアル</span>
+            <span className="detail-value">{part.serial}</span>
+          </div>
+          <div className="detail-row">
+            <span className="detail-label">棟</span>
+            <span className="detail-value">{part.building || '未設定'}</span>
+          </div>
+          <div className="detail-row">
+            <span className="detail-label">階</span>
+            <span className="detail-value">{part.floor || '未設定'}</span>
+          </div>
+          <div className="detail-row">
+            <span className="detail-label">外周/CR</span>
+            <span className="detail-value">{part.area || '未設定'}</span>
+          </div>
+          <div className="detail-row">
+            <span className="detail-label">柱番号</span>
+            <span className="detail-value">{part.pillar || '未設定'}</span>
+          </div>
+          <div className="detail-row">
+            <span className="detail-label">区分</span>
+            <span className="detail-value">{part.category || '未設定'}</span>
+          </div>
+          <div className="detail-row">
+            <span className="detail-label">ステータスA</span>
+            <span className="detail-value">{part.statusA || '未設定'}</span>
+          </div>
+          <div className="detail-row">
+            <span className="detail-label">ステータスB</span>
+            <span className="detail-value">{part.statusB || '未設定'}</span>
+          </div>
+          <div className="detail-row">
+            <span className="detail-label">登録者</span>
+            <span className="detail-value">{part.user || '未設定'}</span>
+          </div>
+          <div className="detail-row">
+            <span className="detail-label">備考</span>
+            <span className="detail-value">{part.notes || '—'}</span>
+          </div>
+          <div className="detail-row">
+            <span className="detail-label">登録日時</span>
+            <span className="detail-value">{part.registeredDate || '未設定'}</span>
+          </div>
+
+          {formatChangeHistory(part.changeHistory)}
+        </div>
+        <div className="detail-footer">
+          <button className="btn-close" onClick={onClose}>閉じる</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default function PartsListView({ products, loading, error, onOpenRegisterForm, onEditPart, onLogout, onRefresh }) {
+  const [editPart, setEditPart] = useState(null);
+  const [detailPart, setDetailPart] = useState(null);
+
+  const handleRegisterClick = () => {
+    console.log('🔴 新規登録ボタンがクリックされました');
+    if (onOpenRegisterForm) {
+      onOpenRegisterForm();
+    }
+  };
+
+  const handleEditClick = (part) => {
+    console.log('✏️ パーツ編集を開く:', part.serial);
+    setEditPart(part);
+  };
+
+  const handleEditConfirm = async (payload) => {
+    console.log('✏️ 編集確定:', payload);
+    if (onEditPart) {
+      await onEditPart(payload);
+    }
+    setEditPart(null);
+  };
+
+  return (
+    <div className="parts-list-container">
+      <div className="parts-header">
+        <h2>📦 パーツ在庫管理</h2>
+        <div className="header-actions">
+          <button className="btn-register" onClick={handleRegisterClick}>
+            ➕ 新規登録
+          </button>
+          <button className="btn-refresh" onClick={onRefresh}>
+            🔄 更新
+          </button>
+          <button className="btn-logout" onClick={onLogout}>
+            ログアウト
+          </button>
+        </div>
+      </div>
+
+      {loading && (
+        <div className="loading-container">
+          <div className="loading-spinner"></div>
+          <p>データを読み込み中...</p>
+        </div>
+      )}
+
+      {error && (
+        <div className="error-container">
+          <p className="error-message">⚠️ エラー: {error}</p>
+          <button className="btn-retry" onClick={onRefresh}>
+            リトライ
+          </button>
+        </div>
+      )}
+
+      {!loading && !error && (
+        <div className="parts-list">
+          {products && products.length > 0 ? (
+            products.map(part => (
+              <div key={part.serial} className="part-card">
+                <div className="card-header">
+                  <span className="label">シリアル</span>
+                  <h3>{part.serial}</h3>
+                  <span className="status-badge">{part.statusA || '未設定'}</span>
+                </div>
+                <div className="card-body">
+                  <div className="info-row">
+                    <span className="label">棟</span>
+                    <span className="value">{part.building || '未設定'}</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="label">ロケーション</span>
+                    <span className="value">{part.building && part.floor && part.area && part.pillar && part.category ? `${part.building}-${part.floor}-${part.area}_${part.pillar}(${part.category})` : '未設定'}</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="label">登録者</span>
+                    <span className="value">{part.user || '未設定'}</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="label">備考</span>
+                    <span className="value">{part.notes || '—'}</span>
+                  </div>
+                </div>
+                <div className="card-footer">
+                  <button className="status-btn" onClick={() => handleEditClick(part)}>
+                    編集
+                  </button>
+                  <button className="detail-btn" onClick={() => setDetailPart(part)}>
+                    詳細
+                  </button>
+                </div>
+                {editPart?.serial === part.serial && (
+                  <EditModal
+                    part={part}
+                    onClose={() => setEditPart(null)}
+                    onSubmit={handleEditConfirm}
+                    currentUser={{ userId: 'User00' }}
+                  />
+                )}
+                {detailPart?.serial === part.serial && (
+                  <DetailModal
+                    part={part}
+                    onClose={() => setDetailPart(null)}
+                  />
+                )}
+              </div>
+            ))
+          ) : (
+            <p className="no-products">パーツが見つかりません</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+import React, { useState, useEffect } from 'react';
+import { sheetsService } from '../services/sheetsService';
+import './PartsListView.css';
+
+const EditModal = ({ part, onClose, onSubmit, currentUser }) => {
+  const [location, setLocation] = useState('');
+  const [statusA, setStatusA] = useState('');
+  const [statusB, setStatusB] = useState('');
+  const [notes, setNotes] = useState('');
+  const [statusAOptions, setStatusAOptions] = useState([]);
+  const [statusBOptions, setStatusBOptions] = useState([]);
+  const [locationOptions, setLocationOptions] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const restrictedStatusBItems = ['FRAT/送り状貼付け済み', 'FRATのみ貼付け済み', '送り状のみ貼付け済み'];
+  const allowedStatusAForRestrictedB = ['使用済みパーツ', 'その他', '未使用返却', 'DOA'];
+
+  useEffect(() => {
+    loadMasters();
+  }, []);
+
+  useEffect(() => {
+    if (part) {
+      setLocation(`${part.building}-${part.floor}-${part.area}_${part.pillar}(${part.category})`);
+      setStatusA(part.statusA || '');
+      setStatusB(part.statusB || '');
+      setNotes(part.notes || '');
+    }
+  }, [part]);
+
+  const loadMasters = async () => {
+    try {
+      console.log('📥 Loading masters...');
+      const statusesA = await sheetsService.getStatusA();
+      const statusesB = await sheetsService.getStatusB();
+      const locations = await sheetsService.getLocationMaster();
+      
+      console.log('✅ Loaded - StatusA:', statusesA.length, 'StatusB:', statusesB.length, 'Locations:', locations.length);
+      
+      setStatusAOptions(statusesA);
+      setStatusBOptions(statusesB);
+      setLocationOptions(locations);
+      setLoading(false);
+    } catch (error) {
+      console.error('❌ Error loading masters:', error);
+      setLoading(false);
+    }
+  };
+
+  const isStatusBDisabled = (statusBItem) => {
+    if (!restrictedStatusBItems.includes(statusBItem)) {
+      return false;
+    }
+    return !allowedStatusAForRestrictedB.includes(statusA);
+  };
+
+  const parseLocation = (locationString) => {
+    const regex = /^([A-Z0-9]+)-(\d+[A-Z]?)-([^_]+)_([A-Z0-9]+)\(([^)]+)\)$/;
+    const match = locationString.match(regex);
+    if (match) {
+      return {
+        building: match[1],
+        floor: match[2],
+        area: match[3],
+        pillar: match[4],
+        category: match[5]
+      };
+    }
+    return null;
+  };
+
+  const handleConfirm = () => {
+    if (!location || !statusA || !statusB) {
+      alert('必須フィールドを入力してください');
+      return;
+    }
+
+    const parsed = parseLocation(location);
+    if (!parsed) {
+      alert('場所のフォーマットが正しくありません');
+      return;
+    }
+
+    const payload = {
+      rowIndex: part.rowIndex,
+      serial: part.serial,
+      building: parsed.building,
+      floor: parsed.floor,
+      area: parsed.area,
+      pillar: parsed.pillar,
+      category: parsed.category,
+      statusA: statusA,
+      statusB: statusB,
+      notes: notes,
+      user: currentUser?.userId || 'Unknown'
+    };
+
+    console.log('📤 Sending edit payload:', payload);
+    onSubmit(payload);
+  };
+
+  if (!part) {
+    return null;
+  }
+
+  return (
+    <div className="modal-overlay" onClick={(e) => {
+      if (e.target === e.currentTarget) {
+        onClose();
+      }
+    }}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <h3>パーツ編集</h3>
+        <p>シリアル: <strong>{part.serial}</strong></p>
+        <p style={{ fontSize: '12px', color: '#666' }}>変更者: {currentUser?.userId || 'Unknown'}</p>
+
+        {loading ? (
+          <p>マスタデータを読み込み中...</p>
+        ) : (
+          <>
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }}>場所</label>
+              <select 
+                value={location} 
+                onChange={(e) => {
+                  console.log('📍 Location changed:', e.target.value);
+                  setLocation(e.target.value);
+                }}
+                style={{ width: '100%', padding: '8px', fontSize: '14px', border: '1px solid #ddd', borderRadius: '4px' }}
+              >
+                <option value="">選択してください</option>
+                {locationOptions.length > 0 ? (
+                  locationOptions.map((loc, index) => (
+                    <option key={index} value={loc}>{loc}</option>
+                  ))
+                ) : (
+                  <option disabled>読み込み中...</option>
+                )}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }}>ステータスA</label>
+              <select 
+                value={statusA} 
+                onChange={(e) => setStatusA(e.target.value)}
+                style={{ width: '100%', padding: '8px', fontSize: '14px', border: '1px solid #ddd', borderRadius: '4px' }}
+              >
+                <option value="">選択してください</option>
+                {statusAOptions.map((status, index) => (
+                  <option key={index} value={status}>{status}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }}>ステータスB</label>
+              <select 
+                value={statusB} 
+                onChange={(e) => setStatusB(e.target.value)}
+                style={{ width: '100%', padding: '8px', fontSize: '14px', border: '1px solid #ddd', borderRadius: '4px' }}
+                disabled={statusA === ''}
+              >
+                <option value="">選択してください</option>
+                {statusBOptions.map((status, index) => (
+                  <option key={index} value={status} disabled={isStatusBDisabled(status)}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }}>備考</label>
+              <textarea 
+                value={notes} 
+                onChange={(e) => setNotes(e.target.value)}
+                style={{ width: '100%', padding: '8px', fontSize: '14px', minHeight: '60px', border: '1px solid #ddd', borderRadius: '4px', fontFamily: 'inherit' }}
+                placeholder="備考があればここに入力"
+              />
+            </div>
+          </>
+        )}
+
+        <div className="modal-buttons">
+          <button onClick={handleConfirm} style={{ flex: 1, padding: '10px 15px', backgroundColor: '#5B6FE0', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+            更新
+          </button>
+          <button onClick={onClose} style={{ flex: 1, padding: '10px 15px', backgroundColor: '#ccc', color: '#333', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+            キャンセル
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const DetailModal = ({ part, onClose }) => {
+  const formatTimestamp = (isoString) => {
+    try {
+      const date = new Date(isoString);
+      return date.toLocaleString('ja-JP', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+    } catch (e) {
+      return isoString;
+    }
+  };
+
+  const formatChangeHistory = (history) => {
+    if (!history || !Array.isArray(history) || history.length === 0) {
+      return null;
+    }
+
+    const sortedHistory = [...history].reverse();
+
+    return (
+      <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '2px solid #eee' }}>
+        <h4 style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '12px', color: '#333' }}>
+          📋 変更履歴
+        </h4>
+        <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+          {sortedHistory.map((change, index) => (
+            <div 
+              key={index}
+              style={{
+                marginBottom: '16px',
+                padding: '12px',
+                backgroundColor: '#f9f9f9',
+                borderLeft: '3px solid #5B6FE0',
+                borderRadius: '4px',
+                fontSize: '12px'
+              }}
+            >
+              <div style={{ marginBottom: '8px', fontWeight: '600', color: '#333' }}>
+                📅 {formatTimestamp(change.timestamp)} - <span style={{ color: '#5B6FE0' }}>{change.changedBy}</span> が更新
+              </div>
+              
+              {change.changes && (
+                <div style={{ color: '#666', lineHeight: '1.6' }}>
+                  {change.changes.location && (
+                    <div style={{ marginBottom: '4px' }}>
+                      📍 ロケーション: 
+                      <span style={{ color: '#d9534f' }}> {change.changes.location.old}</span>
+                      {' → '}
+                      <span style={{ color: '#5cb85c' }}>{change.changes.location.new}</span>
+                    </div>
+                  )}
+                  
+                  {change.changes.statusA && (
+                    <div style={{ marginBottom: '4px' }}>
+                      🔵 ステータスA: 
+                      <span style={{ color: '#d9534f' }}> {change.changes.statusA.old}</span>
+                      {' → '}
+                      <span style={{ color: '#5cb85c' }}>{change.changes.statusA.new}</span>
+                    </div>
+                  )}
+                  
+                  {change.changes.statusB && (
+                    <div style={{ marginBottom: '4px' }}>
+                      🟠 ステータスB: 
+                      <span style={{ color: '#d9534f' }}> {change.changes.statusB.old}</span>
+                      {' → '}
+                      <span style={{ color: '#5cb85c' }}>{change.changes.statusB.new}</span>
+                    </div>
+                  )}
+                  
+                  {change.changes.notes && (
+                    <div style={{ marginBottom: '4px' }}>
+                      📝 備考: 
+                      <span style={{ color: '#d9534f' }}> {change.changes.notes.old || '(なし)'}</span>
+                      {' → '}
+                      <span style={{ color: '#5cb85c' }}>{change.changes.notes.new || '(なし)'}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div 
+        className="modal-content detail-modal" 
+        onClick={e => e.stopPropagation()}
+        style={{ maxHeight: '85vh', overflowY: 'auto' }}
+      >
+        <div className="detail-header">
+          <h3>パーツ詳細情報</h3>
+          <button className="close-btn" onClick={onClose}>✕</button>
+        </div>
+        <div className="detail-body">
+          <div className="detail-row">
+            <span className="detail-label">シリアル</span>
+            <span className="detail-value">{part.serial}</span>
+          </div>
+          <div className="detail-row">
+            <span className="detail-label">棟</span>
+            <span className="detail-value">{part.building || '未設定'}</span>
+          </div>
+          <div className="detail-row">
+            <span className="detail-label">階</span>
+            <span className="detail-value">{part.floor || '未設定'}</span>
+          </div>
+          <div className="detail-row">
+            <span className="detail-label">外周/CR</span>
+            <span className="detail-value">{part.area || '未設定'}</span>
+          </div>
+          <div className="detail-row">
+            <span className="detail-label">柱番号</span>
+            <span className="detail-value">{part.pillar || '未設定'}</span>
+          </div>
+          <div className="detail-row">
+            <span className="detail-label">区分</span>
+            <span className="detail-value">{part.category || '未設定'}</span>
+          </div>
+          <div className="detail-row">
+            <span className="detail-label">ステータスA</span>
+            <span className="detail-value">{part.statusA || '未設定'}</span>
+          </div>
+          <div className="detail-row">
+            <span className="detail-label">ステータスB</span>
+            <span className="detail-value">{part.statusB || '未設定'}</span>
+          </div>
+          <div className="detail-row">
+            <span className="detail-label">登録者</span>
+            <span className="detail-value">{part.user || '未設定'}</span>
+          </div>
+          <div className="detail-row">
+            <span className="detail-label">備考</span>
+            <span className="detail-value">{part.notes || '—'}</span>
+          </div>
+          <div className="detail-row">
+            <span className="detail-label">登録日時</span>
+            <span className="detail-value">{part.registeredDate || '未設定'}</span>
+          </div>
+
+          {formatChangeHistory(part.changeHistory)}
+        </div>
+        <div className="detail-footer">
+          <button className="btn-close" onClick={onClose}>閉じる</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default function PartsListView({ products, loading, error, onOpenRegisterForm, onEditPart, onLogout, onRefresh }) {
+  const [editPart, setEditPart] = useState(null);
+  const [detailPart, setDetailPart] = useState(null);
+
+  const handleRegisterClick = () => {
+    console.log('🔴 新規登録ボタンがクリックされました');
+    if (onOpenRegisterForm) {
+      onOpenRegisterForm();
+    }
+  };
+
+  const handleEditClick = (part) => {
+    console.log('✏️ パーツ編集を開く:', part.serial);
+    setEditPart(part);
+  };
+
+  const handleEditConfirm = async (payload) => {
+    console.log('✏️ 編集確定:', payload);
+    if (onEditPart) {
+      await onEditPart(payload);
+    }
+    setEditPart(null);
+  };
+
+  return (
+    <div className="parts-list-container">
+      <div className="parts-header">
+        <h2>📦 パーツ在庫管理</h2>
+        <div className="header-actions">
+          <button className="btn-register" onClick={handleRegisterClick}>
+            ➕ 新規登録
+          </button>
+          <button className="btn-refresh" onClick={onRefresh}>
+            🔄 更新
+          </button>
+          <button className="btn-logout" onClick={onLogout}>
+            ログアウト
+          </button>
+        </div>
+      </div>
+
+      {loading && (
+        <div className="loading-container">
+          <div className="loading-spinner"></div>
+          <p>データを読み込み中...</p>
+        </div>
+      )}
+
+      {error && (
+        <div className="error-container">
+          <p className="error-message">⚠️ エラー: {error}</p>
+          <button className="btn-retry" onClick={onRefresh}>
+            リトライ
+          </button>
+        </div>
+      )}
+
+      {!loading && !error && (
+        <div className="parts-list">
+          {products && products.length > 0 ? (
+            products.map(part => (
+              <div key={part.serial} className="part-card">
+                <div className="card-header">
+                  <span className="label">シリアル</span>
+                  <h3>{part.serial}</h3>
+                  <span className="status-badge">{part.statusA || '未設定'}</span>
+                </div>
+                <div className="card-body">
+                  <div className="info-row">
+                    <span className="label">棟</span>
+                    <span className="value">{part.building || '未設定'}</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="label">ロケーション</span>
+                    <span className="value">{part.building && part.floor && part.area && part.pillar && part.category ? `${part.building}-${part.floor}-${part.area}_${part.pillar}(${part.category})` : '未設定'}</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="label">登録者</span>
+                    <span className="value">{part.user || '未設定'}</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="label">備考</span>
+                    <span className="value">{part.notes || '—'}</span>
+                  </div>
+                </div>
+                <div className="card-footer">
+                  <button className="status-btn" onClick={() => handleEditClick(part)}>
+                    編集
+                  </button>
+                  <button className="detail-btn" onClick={() => setDetailPart(part)}>
+                    詳細
+                  </button>
+                </div>
+                {editPart?.serial === part.serial && (
+                  <EditModal
+                    part={part}
+                    onClose={() => setEditPart(null)}
+                    onSubmit={handleEditConfirm}
+                    currentUser={{ userId: 'User00' }}
+                  />
+                )}
+                {detailPart?.serial === part.serial && (
+                  <DetailModal
+                    part={part}
+                    onClose={() => setDetailPart(null)}
+                  />
+                )}
+              </div>
+            ))
+          ) : (
+            <p className="no-products">パーツが見つかりません</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

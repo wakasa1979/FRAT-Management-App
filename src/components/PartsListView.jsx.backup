@@ -1,0 +1,1184 @@
+import React, { useState, useEffect } from 'react';
+import { sheetsService } from '../services/sheetsService';
+import './PartsListView.css';
+
+const SearchPanel = ({ 
+  isOpen,
+  setIsOpen,
+  searchSerial, 
+  setSearchSerial, 
+  selectedBuildings, 
+  setSelectedBuildings,
+  selectedLocations,
+  setSelectedLocations,
+  selectedStatusA,
+  setSelectedStatusA,
+  selectedStatusB,
+  setSelectedStatusB,
+  buildings,
+  locationMaster,
+  statusAOptions,
+  statusBOptions,
+  onReset,
+  filteredCount,
+  totalCount
+}) => {
+  const getUniqueBuildings = () => {
+    const buildingSet = new Set();
+    locationMaster.forEach(loc => {
+      const building = loc.split('-')[0];
+      if (building) buildingSet.add(building);
+    });
+    return Array.from(buildingSet).sort();
+  };
+
+  const uniqueBuildings = getUniqueBuildings();
+
+  if (!isOpen) {
+    return (
+      <div style={{ marginBottom: '20px' }}>
+        <button 
+          onClick={() => setIsOpen(true)}
+          style={{
+            width: '100%',
+            padding: '16px',
+            fontSize: '18px',
+            fontWeight: 'bold',
+            backgroundColor: '#5B6FE0',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: 'pointer'
+          }}
+        >
+          🔍 検索・フィルタを表示
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ 
+      backgroundColor: '#f5f5f5', 
+      padding: '20px', 
+      borderRadius: '8px',
+      marginBottom: '20px',
+      border: '2px solid #ddd'
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold' }}>
+          🔍 検索・フィルタ
+        </h3>
+        <button 
+          onClick={() => setIsOpen(false)}
+          style={{
+            padding: '8px 16px',
+            fontSize: '16px',
+            backgroundColor: '#999',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontWeight: 'bold'
+          }}
+        >
+          ✕ 閉じる
+        </button>
+      </div>
+
+      <div style={{ marginBottom: '20px' }}>
+        <label style={{ display: 'block', marginBottom: '8px', fontSize: '16px', fontWeight: 'bold' }}>
+          📝 シリアル検索
+        </label>
+        <input 
+          type="text"
+          value={searchSerial}
+          onChange={(e) => setSearchSerial(e.target.value)}
+          placeholder="シリアル番号を入力（部分一致）"
+          style={{ 
+            width: '100%', 
+            padding: '12px', 
+            fontSize: '16px', 
+            border: '2px solid #ddd', 
+            borderRadius: '6px',
+            boxSizing: 'border-box',
+            fontFamily: 'inherit'
+          }}
+        />
+      </div>
+
+      <div style={{ marginBottom: '20px' }}>
+        <label style={{ display: 'block', marginBottom: '8px', fontSize: '16px', fontWeight: 'bold' }}>
+          🏢 棟でフィルタ
+        </label>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+          {getUniqueBuildings().map((building) => (
+            <label key={building} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px' }}>
+              <input 
+                type="checkbox"
+                checked={selectedBuildings.includes(building)}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedBuildings([...selectedBuildings, building]);
+                  } else {
+                    setSelectedBuildings(selectedBuildings.filter(b => b !== building));
+                  }
+                }}
+                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+              />
+              <span>{building}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ marginBottom: '20px' }}>
+        <label style={{ display: 'block', marginBottom: '8px', fontSize: '16px', fontWeight: 'bold' }}>
+          📍 ロケーションでフィルタ
+        </label>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '250px', overflowY: 'auto', border: '2px solid #ddd', padding: '12px', borderRadius: '6px' }}>
+          {locationMaster.length > 0 ? (
+            locationMaster.map((location, index) => (
+              <label key={index} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}>
+                <input 
+                  type="checkbox"
+                  checked={selectedLocations.includes(location)}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setSelectedLocations([...selectedLocations, location]);
+                    } else {
+                      setSelectedLocations(selectedLocations.filter(l => l !== location));
+                    }
+                  }}
+                  style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                />
+                <span style={{ color: '#666' }}>{location}</span>
+              </label>
+            ))
+          ) : (
+            <p style={{ fontSize: '14px', color: '#999' }}>読み込み中...</p>
+          )}
+        </div>
+      </div>
+
+      <div style={{ marginBottom: '20px' }}>
+        <label style={{ display: 'block', marginBottom: '8px', fontSize: '16px', fontWeight: 'bold' }}>
+          🔵 ステータスA でフィルタ
+        </label>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+          {statusAOptions.map((status) => (
+            <label key={status} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px' }}>
+              <input 
+                type="checkbox"
+                checked={selectedStatusA.includes(status)}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedStatusA([...selectedStatusA, status]);
+                  } else {
+                    setSelectedStatusA(selectedStatusA.filter(s => s !== status));
+                  }
+                }}
+                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+              />
+              <span>{status}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ marginBottom: '20px' }}>
+        <label style={{ display: 'block', marginBottom: '8px', fontSize: '16px', fontWeight: 'bold' }}>
+          🟠 ステータスB でフィルタ
+        </label>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+          {statusBOptions.map((status) => (
+            <label key={status} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px' }}>
+              <input 
+                type="checkbox"
+                checked={selectedStatusB.includes(status)}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedStatusB([...selectedStatusB, status]);
+                  } else {
+                    setSelectedStatusB(selectedStatusB.filter(s => s !== status));
+                  }
+                }}
+                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+              />
+              <span>{status}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#333' }}>
+          ✅ {filteredCount} / {totalCount} 件
+        </div>
+        <button 
+          onClick={onReset}
+          style={{
+            padding: '12px 20px',
+            backgroundColor: '#999',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '16px',
+            fontWeight: 'bold'
+          }}
+        >
+          🔄 リセット
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const EditModal = ({ part, onClose, onSubmit, currentUser, fratStatusMap }) => {
+  const [location, setLocation] = useState('');
+  const [statusA, setStatusA] = useState('');
+  const [statusB, setStatusB] = useState('');
+  const [notes, setNotes] = useState('');
+  const [statusAOptions, setStatusAOptions] = useState([]);
+  const [statusBOptions, setStatusBOptions] = useState([]);
+  const [locationOptions, setLocationOptions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+
+  const restrictedStatusBItems = ['FRAT/送り状貼付け済み', 'FRATのみ貼付け済み', '送り状のみ貼付け済み'];
+  const allowedStatusAForRestrictedB = ['使用済みパーツ', 'その他', '未使用返却', 'DOA'];
+
+  useEffect(() => {
+    loadMasters();
+  }, []);
+
+  useEffect(() => {
+    if (part) {
+      setLocation(`${part.building}-${part.floor}-${part.area}_${part.pillar}(${part.category})`);
+      setStatusA(part.statusA || '');
+      setStatusB(part.statusB || '');
+      setNotes(part.notes || '');
+    }
+  }, [part]);
+
+  const loadMasters = async () => {
+    try {
+      console.log('📥 Loading masters...');
+      const statusesA = await sheetsService.getStatusA();
+      const statusesB = await sheetsService.getStatusB();
+      const locations = await sheetsService.getLocationMaster();
+      
+      setStatusAOptions(statusesA);
+      setStatusBOptions(statusesB);
+      setLocationOptions(locations);
+      setLoading(false);
+    } catch (error) {
+      console.error('❌ Error loading masters:', error);
+      setLoading(false);
+    }
+  };
+
+  const isStatusBDisabled = (statusBItem) => {
+    if (!restrictedStatusBItems.includes(statusBItem)) {
+      return false;
+    }
+    return !allowedStatusAForRestrictedB.includes(statusA);
+  };
+
+  const parseLocation = (locationString) => {
+    const regex = /^([A-Z0-9]+)-(.+?)-([^_]+)_(.+?)\(([^)]+)\)$/;
+    const match = locationString.match(regex);
+    console.log('🔍 parseLocation debug:', { locationString, regex: regex.toString(), match });
+    if (match) {
+      return {
+        building: match[1],
+        floor: match[2],
+        area: match[3],
+        pillar: match[4],
+        category: match[5]
+      };
+    }
+    return null;
+  };
+
+  const handleConfirm = () => {
+    if (!location || !statusA || !statusB) {
+      alert('必須フィールドを入力してください');
+      return;
+    }
+
+    const parsed = parseLocation(location);
+    console.log('✏️ parseLocation result:', parsed);
+    if (!parsed) {
+      alert('場所のフォーマットが正しくありません');
+      return;
+    }
+
+    const payload = {
+      rowIndex: part.rowIndex,
+      serial: part.serial,
+      building: parsed.building,
+      floor: parsed.floor,
+      area: parsed.area,
+      pillar: parsed.pillar,
+      category: parsed.category,
+      statusA: statusA,
+      statusB: statusB,
+      notes: notes,
+      user: currentUser?.userId || 'Unknown'
+    };
+
+    console.log('📤 Sending edit payload:', payload);
+    onSubmit(payload);
+  };
+
+  const handleSendDeletionRequest = async () => {
+    const confirmed = window.confirm(`⚠️ パーツ「${part.serial}」の削除依頼メールを管理者に送信します。よろしいですか？`);
+    if (!confirmed) return;
+
+    setSending(true);
+    console.log('📧 削除依頼メール送信開始:', part.serial);
+    try {
+      const result = await sheetsService.sendDeletionRequestEmail(
+        part.serial,
+        statusA,
+        currentUser?.userId || 'Unknown'
+      );
+      if (result.success) {
+        alert('✅ 削除依頼メールが管理者に送信されました');
+        console.log('✅ 削除依頼メール送信成功:', part.serial);
+      } else {
+        alert('❌ エラー: ' + result.message);
+      }
+    } catch (error) {
+      console.error('❌ handleSendDeletionRequest error:', error);
+      alert('❌ エラーが発生しました');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  if (!part) {
+    return null;
+  }
+
+  return (
+    <div className="modal-overlay" onClick={(e) => {
+      if (e.target === e.currentTarget) {
+        onClose();
+      }
+    }}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <h3>パーツ編集</h3>
+        <p>シリアル: <strong>{part.serial}</strong></p>
+        <p style={{ fontSize: '14px', color: '#666' }}>変更者: {currentUser?.userId || 'Unknown'}</p>
+
+        {loading ? (
+          <p>マスタデータを読み込み中...</p>
+        ) : (
+          <>
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '15px', fontWeight: '600' }}>場所</label>
+              <select 
+                value={location} 
+                onChange={(e) => {
+                  console.log('📍 Location changed:', e.target.value);
+                  setLocation(e.target.value);
+                }}
+                style={{ width: '100%', padding: '10px', fontSize: '15px', border: '1px solid #ddd', borderRadius: '4px' }}
+              >
+                <option value="">選択してください</option>
+                {locationOptions.length > 0 ? (
+                  locationOptions.map((loc, index) => (
+                    <option key={index} value={loc}>{loc}</option>
+                  ))
+                ) : (
+                  <option disabled>読み込み中...</option>
+                )}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '15px', fontWeight: '600' }}>ステータスA</label>
+              <select 
+                value={statusA} 
+                onChange={(e) => setStatusA(e.target.value)}
+                style={{ width: '100%', padding: '10px', fontSize: '15px', border: '1px solid #ddd', borderRadius: '4px' }}
+              >
+                <option value="">選択してください</option>
+                {statusAOptions.map((status, index) => (
+                  <option key={index} value={status}>{status}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '15px', fontWeight: '600' }}>ステータスB</label>
+              <select 
+                value={statusB} 
+                onChange={(e) => setStatusB(e.target.value)}
+                style={{ width: '100%', padding: '10px', fontSize: '15px', border: '1px solid #ddd', borderRadius: '4px' }}
+                disabled={statusA === ''}
+              >
+                <option value="">選択してください</option>
+                {statusBOptions.map((status, index) => (
+                  <option key={index} value={status} disabled={isStatusBDisabled(status)}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '15px', fontWeight: '600' }}>備考</label>
+              <textarea 
+                value={notes} 
+                onChange={(e) => setNotes(e.target.value)}
+                style={{ width: '100%', padding: '10px', fontSize: '15px', minHeight: '80px', border: '1px solid #ddd', borderRadius: '4px', fontFamily: 'inherit' }}
+                placeholder="備考があればここに入力"
+              />
+            </div>
+          </>
+        )}
+
+        <div className="modal-buttons" style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
+          <button 
+            onClick={handleConfirm} 
+            style={{ flex: 1, padding: '12px 15px', backgroundColor: '#5B6FE0', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px' }}>
+            更新
+          </button>
+          <button 
+            onClick={onClose} 
+            style={{ flex: 1, padding: '12px 15px', backgroundColor: '#ccc', color: '#333', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px' }}>
+            キャンセル
+          </button>
+        </div>
+
+        <button 
+          onClick={handleSendDeletionRequest}
+          disabled={sending}
+          style={{ 
+            width: '100%', 
+            padding: '12px 15px', 
+            backgroundColor: '#e74c3c', 
+            color: 'white', 
+            border: 'none', 
+            borderRadius: '6px', 
+            cursor: sending ? 'not-allowed' : 'pointer',
+            fontWeight: 'bold', 
+            fontSize: '16px',
+            opacity: sending ? 0.6 : 1
+          }}>
+          {sending ? '⏳ 送信中...' : '📧 削除依頼メールを送信'}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const DetailModal = ({ part, onClose }) => {
+  const formatTimestamp = (isoString) => {
+    try {
+      const date = new Date(isoString);
+      return date.toLocaleString('ja-JP', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+    } catch (e) {
+      return isoString;
+    }
+  };
+
+  const formatChangeHistory = (history) => {
+    if (!history || !Array.isArray(history) || history.length === 0) {
+      return null;
+    }
+
+    const sortedHistory = [...history].reverse();
+
+    return (
+      <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '2px solid #eee' }}>
+        <h4 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '16px', color: '#333', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          📋 変更履歴
+        </h4>
+        <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+          {sortedHistory.map((change, index) => (
+            <div 
+              key={index}
+              style={{
+                marginBottom: '16px',
+                padding: '14px',
+                backgroundColor: '#f8f9ff',
+                borderLeft: '4px solid #5B6FE0',
+                borderRadius: '6px',
+                fontSize: '14px'
+              }}
+            >
+              <div style={{ marginBottom: '12px', fontWeight: '600', color: '#333', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>🕐 {formatTimestamp(change.timestamp)}</span>
+                <span style={{ color: '#5B6FE0', fontWeight: 'bold' }}>by {change.changedBy}</span>
+              </div>
+              
+              {change.changes && (
+                <div style={{ color: '#555', lineHeight: '1.8' }}>
+                  {change.changes.location && (
+                    <div style={{ marginBottom: '8px', padding: '8px', backgroundColor: 'white', borderRadius: '4px', borderLeft: '3px solid #ff6b6b' }}>
+                      📍 <span style={{ fontWeight: '600' }}>ロケーション</span>
+                      <br />
+                      <span style={{ color: '#d9534f' }}>前: {change.changes.location.old}</span>
+                      <br />
+                      <span style={{ color: '#5cb85c' }}>新: {change.changes.location.new}</span>
+                    </div>
+                  )}
+                  
+                  {change.changes.statusA && (
+                    <div style={{ marginBottom: '8px', padding: '8px', backgroundColor: 'white', borderRadius: '4px', borderLeft: '3px solid #5cb85c' }}>
+                      🔵 <span style={{ fontWeight: '600' }}>ステータスA</span>
+                      <br />
+                      <span style={{ color: '#d9534f' }}>前: {change.changes.statusA.old}</span>
+                      <br />
+                      <span style={{ color: '#5cb85c' }}>新: {change.changes.statusA.new}</span>
+                    </div>
+                  )}
+                  
+                  {change.changes.statusB && (
+                    <div style={{ marginBottom: '8px', padding: '8px', backgroundColor: 'white', borderRadius: '4px', borderLeft: '3px solid #f0ad4e' }}>
+                      🟠 <span style={{ fontWeight: '600' }}>ステータスB</span>
+                      <br />
+                      <span style={{ color: '#d9534f' }}>前: {change.changes.statusB.old}</span>
+                      <br />
+                      <span style={{ color: '#5cb85c' }}>新: {change.changes.statusB.new}</span>
+                    </div>
+                  )}
+                  
+                  {change.changes.notes && (
+                    <div style={{ marginBottom: '8px', padding: '8px', backgroundColor: 'white', borderRadius: '4px', borderLeft: '3px solid #9b59b6' }}>
+                      📝 <span style={{ fontWeight: '600' }}>備考</span>
+                      <br />
+                      <span style={{ color: '#d9534f' }}>前: {change.changes.notes.old || '(なし)'}</span>
+                      <br />
+                      <span style={{ color: '#5cb85c' }}>新: {change.changes.notes.new || '(なし)'}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div 
+        className="modal-content detail-modal" 
+        onClick={e => e.stopPropagation()}
+        style={{ maxHeight: '85vh', overflowY: 'auto' }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '16px', borderBottom: '2px solid #e0e0e0' }}>
+          <h3 style={{ margin: 0, fontSize: '24px', fontWeight: 'bold', color: '#333' }}>
+            📦 パーツ詳細情報
+          </h3>
+          <button 
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontSize: '28px',
+              cursor: 'pointer',
+              color: '#999',
+              padding: '0',
+              width: '32px',
+              height: '32px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            ×
+          </button>
+        </div>
+
+        <div style={{ marginBottom: '24px', padding: '16px', backgroundColor: '#f5f7ff', borderRadius: '8px', borderLeft: '4px solid #5B6FE0' }}>
+          <h4 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: 'bold', color: '#5B6FE0' }}>🆔 基本情報</h4>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: '600', color: '#999', marginBottom: '4px' }}>シリアル</div>
+              <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#333' }}>{part.serial}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: '600', color: '#999', marginBottom: '4px' }}>登録者</div>
+              <div style={{ fontSize: '16px', color: '#333' }}>{part.user || '未設定'}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: '600', color: '#999', marginBottom: '4px' }}>登録日時</div>
+              <div style={{ fontSize: '16px', color: '#333' }}>{part.registeredDate || '未設定'}</div>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '24px', padding: '16px', backgroundColor: '#fffbf0', borderRadius: '8px', borderLeft: '4px solid #FFC107' }}>
+          <h4 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: 'bold', color: '#e67e22' }}>📍 ロケーション情報</h4>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: '600', color: '#999', marginBottom: '4px' }}>棟</div>
+              <div style={{ fontSize: '16px', color: '#333' }}>{part.building || '未設定'}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: '600', color: '#999', marginBottom: '4px' }}>階</div>
+              <div style={{ fontSize: '16px', color: '#333' }}>{part.floor || '未設定'}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: '600', color: '#999', marginBottom: '4px' }}>外周/CR</div>
+              <div style={{ fontSize: '16px', color: '#333' }}>{part.area || '未設定'}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: '600', color: '#999', marginBottom: '4px' }}>柱番号</div>
+              <div style={{ fontSize: '16px', color: '#333' }}>{part.pillar || '未設定'}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: '600', color: '#999', marginBottom: '4px' }}>区分</div>
+              <div style={{ fontSize: '16px', color: '#333' }}>{part.category || '未設定'}</div>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '24px', padding: '16px', backgroundColor: '#f0f5ff', borderRadius: '8px', borderLeft: '4px solid #2196F3' }}>
+          <h4 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: 'bold', color: '#2196F3' }}>🏷️ ステータス情報</h4>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: '600', color: '#999', marginBottom: '4px' }}>ステータスA</div>
+              <div style={{ fontSize: '16px', fontWeight: '600', color: '#333' }}>{part.statusA || '未設定'}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: '600', color: '#999', marginBottom: '4px' }}>ステータスB</div>
+              <div style={{ fontSize: '16px', fontWeight: '600', color: '#333' }}>{part.statusB || '未設定'}</div>
+            </div>
+          </div>
+        </div>
+
+        {part.notes && (
+          <div style={{ marginBottom: '24px', padding: '16px', backgroundColor: '#f9f9f9', borderRadius: '8px', borderLeft: '4px solid #9b59b6' }}>
+            <h4 style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: 'bold', color: '#9b59b6' }}>📝 備考</h4>
+            <p style={{ margin: 0, color: '#555', lineHeight: '1.6' }}>{part.notes}</p>
+          </div>
+        )}
+
+        {formatChangeHistory(part.changeHistory)}
+
+        <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '2px solid #e0e0e0', display: 'flex', justifyContent: 'center' }}>
+          <button 
+            onClick={onClose}
+            style={{
+              padding: '12px 32px',
+              backgroundColor: '#5B6FE0',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              fontSize: '16px'
+            }}
+          >
+            閉じる
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const getStatusColorA = (status) => {
+  const colors = {
+    '未使用・使用前': { bg: '#FFCDD2', color: '#000000' },
+    '使用済みパーツ': { bg: '#BBDEFB', color: '#000000' },
+    '不明': { bg: '#FFF59D', color: '#e53935' },
+    '保留': { bg: '#FFF59D', color: '#e53935' },
+    '削除依頼': { bg: '#f44336', color: '#ffffff' },
+    '未使用返却': { bg: '#BBDEFB', color: '#e53935' },
+    'DOA': { bg: '#BBDEFB', color: '#e53935' },
+    'その他': { bg: 'transparent', color: '#e53935' }
+  };
+  return colors[status] || { bg: '#f0f0f0', color: '#333333' };
+};
+
+const getStatusColorB = (status) => {
+  const colors = {
+    'FRAT/送り状貼付け済み': { bg: '#BBDEFB', color: '#000000' },
+    'FRATのみ貼付け済み': { bg: '#FFF59D', color: '#e53935' },
+    '送り状のみ貼付け済み': { bg: '#FFF59D', color: '#e53935' },
+    '出荷不可': { bg: '#f44336', color: '#ffff00' },
+    '使用不可': { bg: '#f44336', color: '#ffffff' },
+    'その他': { bg: 'transparent', color: '#e53935' }
+  };
+  return colors[status] || { bg: '#f0f0f0', color: '#333333' };
+};
+
+export default function PartsListView({ products, loading, error, onOpenRegisterForm, onEditPart, onLogout, onRefresh, currentUser }) {
+  const [editPart, setEditPart] = useState(null);
+  const [detailPart, setDetailPart] = useState(null);
+  const [locationMaster, setLocationMaster] = useState([]);
+  const [statusAOptions, setStatusAOptions] = useState([]);
+  const [statusBOptions, setStatusBOptions] = useState([]);
+  const [searchPanelOpen, setSearchPanelOpen] = useState(false);
+
+  const [searchSerial, setSearchSerial] = useState('');
+  const [selectedBuildings, setSelectedBuildings] = useState([]);
+  const [selectedLocations, setSelectedLocations] = useState([]);
+  const [selectedStatusA, setSelectedStatusA] = useState([]);
+  const [selectedStatusB, setSelectedStatusB] = useState([]);
+
+  const [fratStatusMap, setFratStatusMap] = useState({});
+  const [fratLoading, setFratLoading] = useState(false);
+
+  useEffect(() => {
+    loadMasters();
+  }, []);
+
+  useEffect(() => {
+    if (products && products.length > 0) {
+      loadFratStatuses();
+    }
+  }, [products]);
+
+  const loadMasters = async () => {
+    try {
+      const locations = await sheetsService.getLocationMaster();
+      const statusesA = await sheetsService.getStatusA();
+      const statusesB = await sheetsService.getStatusB();
+      setLocationMaster(locations);
+      setStatusAOptions(statusesA);
+      setStatusBOptions(statusesB);
+    } catch (error) {
+      console.error('Error loading masters:', error);
+    }
+  };
+
+  const loadFratStatuses = async () => {
+    setFratLoading(true);
+    console.log('🔍 FRAT ステータス確認開始...');
+    const newFratMap = {};
+    
+    try {
+      for (const part of products) {
+        try {
+          const fratResult = await sheetsService.checkFratExists(part.serial);
+          newFratMap[part.serial] = fratResult;
+          console.log(`📊 FRAT: ${part.serial} → ${fratResult.exists ? '✅ 発行済み・未処理' : '❌ なし/既処理'}`);
+        } catch (err) {
+          console.warn(`⚠️ FRAT確認エラー (${part.serial}):`, err);
+          newFratMap[part.serial] = { exists: false, frat: null };
+        }
+      }
+    } catch (error) {
+      console.error('❌ loadFratStatuses error:', error);
+    }
+    
+    setFratStatusMap(newFratMap);
+    setFratLoading(false);
+    console.log('✅ FRAT ステータス確認完了');
+  };
+
+  const getFilteredProducts = () => {
+    return products.filter(part => {
+      if (part.confirmationString && part.confirmationString.trim() !== '') {
+        return false;
+      }
+      
+      const serialMatch = searchSerial === '' || part.serial.toUpperCase().includes(searchSerial.toUpperCase());
+      
+      const buildingMatch = selectedBuildings.length === 0 || selectedBuildings.includes(part.building);
+      
+      const locationMatch = selectedLocations.length === 0 || 
+        selectedLocations.includes(`${part.building}-${part.floor}-${part.area}_${part.pillar}(${part.category})`);
+      
+      const statusAMatch = selectedStatusA.length === 0 || selectedStatusA.includes(part.statusA);
+      
+      const statusBMatch = selectedStatusB.length === 0 || selectedStatusB.includes(part.statusB);
+      
+      return serialMatch && buildingMatch && locationMatch && statusAMatch && statusBMatch;
+    });
+  };
+
+  const filteredProducts = getFilteredProducts();
+
+  const handleReset = () => {
+    setSearchSerial('');
+    setSelectedBuildings([]);
+    setSelectedLocations([]);
+    setSelectedStatusA([]);
+    setSelectedStatusB([]);
+  };
+
+  const handleRegisterClick = () => {
+    console.log('🔴 新規登録ボタンがクリックされました');
+    if (onOpenRegisterForm) {
+      onOpenRegisterForm();
+    }
+  };
+
+  const handleEditClick = (part) => {
+    console.log('✏️ パーツ編集を開く:', part.serial);
+    setEditPart(part);
+  };
+
+  const handleEditConfirm = async (payload) => {
+    console.log('✏️ 編集確定:', payload);
+    if (onEditPart) {
+      await onEditPart(payload);
+    }
+    setEditPart(null);
+  };
+
+  const handleShipmentConfirmed = async (part) => {
+    const confirmed = window.confirm(`確認:\n\nシリアル「${part.serial}」を出荷確認済みにします。\nカード一覧から消します。\n\nよろしいですか？`);
+    if (!confirmed) return;
+
+    console.log('📤 出荷確認処理開始:', part.serial);
+    try {
+      const result = await sheetsService.markShipmentConfirmed(part.serial, currentUser?.userId || 'Unknown');
+      if (result.success) {
+        alert(`✅ パーツを出荷確認済みにしました\n\n記録: ${result.confirmationString}`);
+        console.log('✅ 出荷確認成功:', part.serial);
+        if (onRefresh) onRefresh();
+      } else {
+        alert('❌ エラー: ' + result.message);
+      }
+    } catch (error) {
+      console.error('❌ handleShipmentConfirmed error:', error);
+      alert('❌ エラーが発生しました');
+    }
+  };
+
+  return (
+    <div className="parts-list-container" style={{ padding: '16px' }}>
+      <div className="parts-header">
+        <h2 style={{ fontSize: '26px', marginBottom: '16px' }}>📦 パーツ在庫管理</h2>
+        <div className="header-actions" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          <button className="btn-register" onClick={handleRegisterClick} style={{ padding: '14px 20px', fontSize: '16px', fontWeight: 'bold' }}>
+            ➕ 新規登録
+          </button>
+          <button className="btn-refresh" onClick={onRefresh} style={{ padding: '14px 20px', fontSize: '16px', fontWeight: 'bold' }}>
+            🔄 更新
+          </button>
+          <button className="btn-logout" onClick={onLogout} style={{ padding: '14px 20px', fontSize: '16px', fontWeight: 'bold' }}>
+            ログアウト
+          </button>
+        </div>
+      </div>
+
+      {loading && (
+        <div className="loading-container">
+          <div className="loading-spinner"></div>
+          <p style={{ fontSize: '16px' }}>データを読み込み中...</p>
+        </div>
+      )}
+
+      {error && (
+        <div className="error-container">
+          <p className="error-message" style={{ fontSize: '16px' }}>⚠️ エラー: {error}</p>
+          <button className="btn-retry" onClick={onRefresh} style={{ padding: '12px 20px', fontSize: '16px' }}>
+            リトライ
+          </button>
+        </div>
+      )}
+
+      {!loading && !error && (
+        <>
+          <SearchPanel
+            isOpen={searchPanelOpen}
+            setIsOpen={setSearchPanelOpen}
+            searchSerial={searchSerial}
+            setSearchSerial={setSearchSerial}
+            selectedBuildings={selectedBuildings}
+            setSelectedBuildings={setSelectedBuildings}
+            selectedLocations={selectedLocations}
+            setSelectedLocations={setSelectedLocations}
+            selectedStatusA={selectedStatusA}
+            setSelectedStatusA={setSelectedStatusA}
+            selectedStatusB={selectedStatusB}
+            setSelectedStatusB={setSelectedStatusB}
+            buildings={[]}
+            locationMaster={locationMaster}
+            statusAOptions={statusAOptions}
+            statusBOptions={statusBOptions}
+            onReset={handleReset}
+            filteredCount={filteredProducts.length}
+            totalCount={products.length}
+          />
+
+          {fratLoading && (
+            <div style={{ padding: '12px', backgroundColor: '#f0f7ff', border: '2px solid #5B6FE0', borderRadius: '6px', marginBottom: '16px', fontSize: '15px', fontWeight: '500' }}>
+              ⏳ FRAT ステータスを確認中...
+            </div>
+          )}
+
+          <div className="parts-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '20px' }}>
+            {filteredProducts && filteredProducts.length > 0 ? (
+              filteredProducts.map(part => {
+                const fratStatus = fratStatusMap[part.serial] || { exists: false, frat: null };
+                const allowedStatusAForFrat = ['使用済みパーツ', '未使用返却', 'DOA', 'その他'];
+                const showFratBadge = fratStatus.exists && allowedStatusAForFrat.includes(part.statusA);
+                const isFratStatus = part.statusB === 'FRAT/送り状貼付け済み';
+
+                const locationStr = `${part.building}-${part.floor}-${part.area}_${part.pillar}(${part.category})`;
+
+                return (
+                  <div 
+                    key={part.serial} 
+                    className="part-card" 
+                    style={{ 
+                      backgroundColor: 'white',
+                      borderRadius: '8px',
+                      border: '2px solid #999',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                      overflow: 'hidden',
+                      display: 'flex',
+                      flexDirection: 'column'
+                    }}>
+                    <div style={{
+                      backgroundColor: '#FFC107',
+                      padding: '12px 16px',
+                      textAlign: 'left',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                      filter: isFratStatus ? 'grayscale(100%)' : 'none',
+                      opacity: isFratStatus ? 0.85 : 1
+                    }}>
+                      <div style={{ flex: 1 }}>
+                        <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#666' }}>場所: </span>
+                        <span style={{ fontSize: '28px', fontWeight: 'bold', color: '#333', wordBreak: 'break-word', display: 'inline' }}>
+                          {locationStr || 'N/A'}
+                        </span>
+                      </div>
+                      {showFratBadge && !isFratStatus && (
+                        <div style={{
+                          backgroundColor: '#28a745',
+                          color: 'white',
+                          padding: '6px 12px',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          fontWeight: 'bold',
+                          marginLeft: '12px',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          ✅ FRAT
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{
+                      backgroundColor: '#CE93D8',
+                      padding: '12px 16px',
+                      textAlign: 'left',
+                      minHeight: '50px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      filter: isFratStatus ? 'grayscale(100%)' : 'none',
+                      opacity: isFratStatus ? 0.85 : 1
+                    }}>
+                      <div style={{ fontSize: '45px', fontWeight: 'bold', color: 'white', wordBreak: 'break-word', lineHeight: '0.9' }}>
+                        {part.serial}
+                      </div>
+                    </div>
+
+                    <div style={{
+                      padding: '12px 16px',
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: '8px',
+                      justifyContent: 'flex-start',
+                      borderBottom: '1px solid #eee',
+                      filter: isFratStatus ? 'grayscale(100%)' : 'none',
+                      opacity: isFratStatus ? 0.85 : 1
+                    }}>
+                      {part.statusA && (
+                        <span style={{
+                          padding: '8px 12px',
+                          borderRadius: '4px',
+                          fontSize: '14px',
+                          fontWeight: 'bold',
+                          backgroundColor: getStatusColorA(part.statusA).bg,
+                          color: getStatusColorA(part.statusA).color,
+                          border: getStatusColorA(part.statusA).bg === 'transparent' ? '2px solid #e53935' : 'none'
+                        }}>
+                          {part.statusA}
+                        </span>
+                      )}
+                      {part.statusB && (
+                        <span style={{
+                          padding: '8px 12px',
+                          borderRadius: '4px',
+                          fontSize: '14px',
+                          fontWeight: 'bold',
+                          backgroundColor: getStatusColorB(part.statusB).bg,
+                          color: getStatusColorB(part.statusB).color,
+                          border: getStatusColorB(part.statusB).bg === 'transparent' ? '2px solid #e53935' : 'none'
+                        }}>
+                          {part.statusB}
+                        </span>
+                      )}
+                    </div>
+
+                    <div style={{ 
+                      padding: '12px 16px', 
+                      flex: 1, 
+                      fontSize: '14px',
+                      filter: isFratStatus ? 'grayscale(100%)' : 'none',
+                      opacity: isFratStatus ? 0.85 : 1
+                    }}>
+                      <div style={{ marginBottom: '6px' }}>
+                        <span style={{ fontWeight: 'bold', color: '#666' }}>登録年月日: </span>
+                        <span style={{ color: '#333' }}>{part.registeredDate || 'N/A'}</span>
+                      </div>
+                      <div style={{ marginBottom: '6px' }}>
+                        <span style={{ fontWeight: 'bold', color: '#666' }}>登録者: </span>
+                        <span style={{ color: '#333' }}>{part.user || 'N/A'}</span>
+                      </div>
+                      {part.notes && (
+                        <div>
+                          <span style={{ fontWeight: 'bold', color: '#666' }}>備考: </span>
+                          <span style={{ color: '#333', fontStyle: 'italic' }}>{part.notes}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {!isFratStatus && (
+                      <div style={{
+                        display: 'flex',
+                        gap: '8px',
+                        padding: '12px 16px',
+                        borderTop: '1px solid #eee',
+                        justifyContent: 'flex-start',
+                        flexWrap: 'wrap'
+                      }}>
+                        <button 
+                          onClick={() => handleEditClick(part)}
+                          style={{
+                            padding: '10px 16px',
+                            fontSize: '14px',
+                            fontWeight: 'bold',
+                            backgroundColor: '#4CAF50',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            flex: '1'
+                          }}
+                        >
+                          編集
+                        </button>
+                        <button 
+                          onClick={() => setDetailPart(part)}
+                          style={{
+                            padding: '10px 16px',
+                            fontSize: '14px',
+                            fontWeight: 'bold',
+                            backgroundColor: '#2196F3',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            flex: '1'
+                          }}
+                        >
+                          詳細
+                        </button>
+                        {currentUser?.isAdmin && (
+                          <button 
+                            onClick={() => {
+                              const confirmed = window.confirm(`⚠️ パーツ「${part.serial}」を削除します。よろしいですか？`);
+                              if (!confirmed) return;
+                              console.log('🗑️ パーツ削除開始:', part.serial);
+                              sheetsService.deletePart(part.rowIndex, part.serial, currentUser.userId || 'Unknown').then(result => {
+                                if (result.success) {
+                                  alert('✅ パーツが削除されました');
+                                  if (onRefresh) onRefresh();
+                                } else {
+                                  alert('❌ エラー: ' + result.message);
+                                }
+                              });
+                            }}
+                            style={{
+                              padding: '10px 16px',
+                              fontSize: '14px',
+                              fontWeight: 'bold',
+                              backgroundColor: '#f44336',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              flex: '1'
+                            }}
+                          >
+                            削除
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {isFratStatus && (
+                      <div style={{
+                        display: 'flex',
+                        gap: '8px',
+                        padding: '12px 16px',
+                        borderTop: '1px solid #eee',
+                        justifyContent: 'flex-start',
+                        flexWrap: 'wrap'
+                      }}>
+                        <button 
+                          onClick={() => handleShipmentConfirmed(part)}
+                          style={{
+                            flex: 1,
+                            padding: '16px 20px',
+                            fontSize: '18px',
+                            fontWeight: 'bold',
+                            backgroundColor: '#f44336',
+                            color: '#FFFF00',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            minWidth: '150px'
+                          }}
+                        >
+                          🔴 出荷確認完了
+                        </button>
+                      </div>
+                    )}
+
+                    {editPart?.serial === part.serial && (
+                      <EditModal
+                        part={part}
+                        onClose={() => setEditPart(null)}
+                        onSubmit={handleEditConfirm}
+                        currentUser={currentUser}
+                        fratStatusMap={fratStatusMap}
+                      />
+                    )}
+                    {detailPart?.serial === part.serial && (
+                      <DetailModal
+                        part={part}
+                        onClose={() => setDetailPart(null)}
+                      />
+                    )}
+                  </div>
+                );
+              })
+            ) : (
+              <p style={{ fontSize: '18px', textAlign: 'center', padding: '40px 20px', color: '#999', gridColumn: '1/-1' }}>
+                {products.length === 0 ? 'パーツが見つかりません' : '検索条件に合致するパーツはありません'}
+              </p>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}

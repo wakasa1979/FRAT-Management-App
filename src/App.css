@@ -1,0 +1,383 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f5f5f5;
+  font-size: 20px;
+}
+
+.App {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: #fff;
+  font-size: 20px;
+}
+
+/* ===== ヘッダー ===== */
+.app-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 24px 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.app-header h1 {
+  font-size: 40px;
+  font-weight: bold;
+  margin: 0;
+}
+
+.header-info {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.header-info span {
+  font-size: 18px;
+}
+
+.btn-logout {
+  padding: 16px 30px;
+  font-size: 18px;
+  font-weight: bold;
+  color: #667eea;
+  background-color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.3s, transform 0.1s;
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-logout:hover {
+  background-color: #f0f0f0;
+  transform: translateY(-2px);
+}
+
+.btn-logout:active {
+  transform: translateY(0);
+}
+
+/* ===== メイン ===== */
+.app-main {
+  flex: 1;
+  padding: 30px;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* ===== アクションボタン ===== */
+.action-buttons {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 30px;
+  flex-wrap: wrap;
+}
+
+.btn-register,
+.btn-search,
+.btn-refresh {
+  padding: 16px 30px;
+  font-size: 18px;
+  font-weight: bold;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s, transform 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 50px;
+}
+
+.btn-register {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.btn-register:hover {
+  background-color: #45a049;
+  transform: translateY(-2px);
+}
+
+.btn-search {
+  background-color: #2196F3;
+  color: white;
+}
+
+.btn-search:hover {
+  background-color: #0b7dda;
+  transform: translateY(-2px);
+}
+
+.btn-refresh {
+  background-color: #FF9800;
+  color: white;
+}
+
+.btn-refresh:hover {
+  background-color: #e68900;
+  transform: translateY(-2px);
+}
+
+/* ===== エラーバナー ===== */
+.error-banner {
+  background-color: #ffebee;
+  border-left: 5px solid #f44336;
+  padding: 18px 22px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+}
+
+.error-banner p {
+  font-size: 18px;
+  color: #d32f2f;
+  margin: 0;
+}
+
+/* ===== ローディング ===== */
+.loading {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.loading p {
+  font-size: 22px;
+  color: #666;
+}
+
+/* ===== タブナビゲーション ===== */
+.tab-navigation {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 25px;
+  border-bottom: 3px solid #ddd;
+  overflow-x: auto;
+  padding-bottom: 0;
+}
+
+.tab {
+  padding: 16px 22px;
+  font-size: 18px;
+  font-weight: bold;
+  background-color: transparent;
+  color: #666;
+  border: none;
+  border-bottom: 4px solid transparent;
+  cursor: pointer;
+  transition: all 0.3s;
+  white-space: nowrap;
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+}
+
+.tab:hover {
+  color: #667eea;
+  background-color: #f5f5f5;
+}
+
+.tab.active {
+  color: #667eea;
+  border-bottom-color: #667eea;
+}
+
+/* ===== レスポンシブ対応 ===== */
+@media (max-width: 768px) {
+  .app-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 16px;
+  }
+
+  .app-header h1 {
+    font-size: 32px;
+  }
+
+  .header-info {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .header-info span {
+    font-size: 17px;
+  }
+
+  .app-main {
+    padding: 16px;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .btn-register,
+  .btn-search,
+  .btn-refresh {
+    width: 100%;
+    padding: 14px;
+    font-size: 17px;
+    min-height: 48px;
+  }
+
+  .tab-navigation {
+    gap: 5px;
+  }
+
+  .tab {
+    padding: 14px 16px;
+    font-size: 16px;
+    min-height: 48px;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-header {
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .app-header h1 {
+    font-size: 28px;
+  }
+
+  .header-info {
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .header-info span {
+    font-size: 16px;
+  }
+
+  .btn-logout {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    min-height: 44px;
+  }
+
+  .app-main {
+    padding: 12px;
+  }
+
+  .action-buttons {
+    gap: 10px;
+  }
+
+  .btn-register,
+  .btn-search,
+  .btn-refresh {
+    padding: 12px;
+    font-size: 16px;
+    min-height: 44px;
+  }
+
+  .tab-navigation {
+    gap: 4px;
+  }
+
+  .tab {
+    padding: 12px 14px;
+    font-size: 15px;
+    min-height: 44px;
+  }
+
+  .error-banner p {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 360px) {
+  body {
+    font-size: 16px;
+  }
+
+  .App {
+    font-size: 16px;
+  }
+
+  .app-header {
+    padding: 12px;
+    gap: 8px;
+  }
+
+  .app-header h1 {
+    font-size: 24px;
+  }
+
+  .header-info {
+    width: 100%;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .header-info span {
+    font-size: 15px;
+  }
+
+  .btn-logout {
+    width: 100%;
+    font-size: 15px;
+    padding: 10px;
+    min-height: 42px;
+  }
+
+  .app-main {
+    padding: 10px;
+  }
+
+  .action-buttons {
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+
+  .btn-register,
+  .btn-search,
+  .btn-refresh {
+    padding: 10px;
+    font-size: 15px;
+    min-height: 42px;
+  }
+
+  .tab-navigation {
+    gap: 3px;
+    margin-bottom: 15px;
+  }
+
+  .tab {
+    padding: 10px 12px;
+    font-size: 14px;
+    min-height: 42px;
+  }
+
+  .error-banner {
+    padding: 14px 16px;
+    margin-bottom: 16px;
+  }
+
+  .error-banner p {
+    font-size: 15px;
+  }
+
+  .loading p {
+    font-size: 18px;
+  }
+}

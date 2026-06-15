@@ -1,0 +1,84 @@
+.App {
+  min-height: 100vh;
+  background: #f5f5f5;
+}
+
+.main-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.app-header {
+  background: white;
+  padding: 20px;
+  border-bottom: 2px solid #ddd;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 32px;
+  color: #333;
+}
+
+.header-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+/* ==================== 検索ボタン ==================== */
+.search-btn {
+  padding: 14px 28px;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 18px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.search-btn:hover {
+  background: #218838;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+}
+
+.search-btn:active {
+  transform: translateY(0);
+}
+
+/* ==================== 更新ボタン ==================== */
+.refresh-btn {
+  padding: 10px 20px;
+  background: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  background: #5a6268;
+  transform: translateY(-2px);
+}
+
+.refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

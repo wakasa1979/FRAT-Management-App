@@ -1,0 +1,325 @@
+const GOOGLE_SHEETS_ID = process.env.REACT_APP_GOOGLE_SHEETS_ID;
+const GOOGLE_API_KEY = process.env.REACT_APP_GOOGLE_API_KEY;
+
+export const sheetsService = {
+  async registerNewPart(payload) {
+    try {
+      const webhookUrl = process.env.REACT_APP_GAS_WEBHOOK_URL;
+      const gasPayload = {
+        action: 'registerNewPart',
+        serial: payload.serial,
+        building: payload.building,
+        floor: payload.floor,
+        area: payload.area,
+        pillar: payload.pillar,
+        category: payload.category,
+        statusA: payload.statusA,
+        statusB: payload.statusB,
+        user: payload.user,
+        notes: payload.notes
+      };
+      console.log('📤 registerNewPart sending to GAS:', gasPayload);
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(gasPayload)
+      });
+      console.log('✅ GAS Webhook Response:', response.status);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const partsData = await this.getPartsList();
+      const registered = partsData.find(p => p.serial === payload.serial);
+      if (registered) {
+        console.log('✅ 新規パーツ登録成功（確認済み）');
+        return { success: true, message: 'パーツが正常に登録されました', serial: payload.serial };
+      } else {
+        console.log('⚠️ パーツ登録は送信されましたが、確認待ちです');
+        return { success: true, message: 'パーツを登録しました（確認中）', serial: payload.serial };
+      }
+    } catch (error) {
+      console.error('❌ registerNewPart error:', error);
+      return { success: false, message: error.message };
+    }
+  },
+
+  async updatePart(payload) {
+    try {
+      const webhookUrl = process.env.REACT_APP_GAS_WEBHOOK_URL;
+      const gasPayload = {
+        action: 'updatePart',
+        rowIndex: payload.rowIndex,
+        serial: payload.serial,
+        building: payload.building,
+        floor: payload.floor,
+        area: payload.area,
+        pillar: payload.pillar,
+        category: payload.category,
+        statusA: payload.statusA,
+        statusB: payload.statusB,
+        notes: payload.notes,
+        user: payload.user
+      };
+      console.log('📤 updatePart sending to GAS:', gasPayload);
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(gasPayload)
+      });
+      console.log('✅ GAS Webhook Response:', response.status);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log('✅ パーツ更新成功');
+      return { success: true, message: 'パーツが正常に更新されました', serial: payload.serial };
+    } catch (error) {
+      console.error('❌ updatePart error:', error);
+      return { success: false, message: error.message };
+    }
+  },
+
+  // ===== FRAT 関連 API（v4 で追加） =====
+
+  async checkFratExists(serial) {
+    try {
+      const webhookUrl = process.env.REACT_APP_GAS_WEBHOOK_URL;
+      const gasPayload = {
+        action: 'checkFratExists',
+        serial: serial
+      };
+      console.log('📤 checkFratExists sending to GAS:', gasPayload);
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        mode: 'cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(gasPayload)
+      });
+      
+      if (!response.ok) {
+        console.warn('⚠️ checkFratExists HTTP error:', response.status);
+        return { exists: false, frat: null };
+      }
+      
+      const data = await response.json();
+      console.log('✅ checkFratExists response:', data);
+      return data;
+    } catch (error) {
+      console.error('❌ checkFratExists error:', error);
+      return { exists: false, frat: null };
+    }
+  },
+
+  async updateFratAttachmentStatus(serial, user) {
+    try {
+      const webhookUrl = process.env.REACT_APP_GAS_WEBHOOK_URL;
+      const gasPayload = {
+        action: 'updateFratAttachmentStatus',
+        serial: serial,
+        user: user
+      };
+      console.log('📤 updateFratAttachmentStatus sending to GAS:', gasPayload);
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(gasPayload)
+      });
+      console.log('✅ GAS Webhook Response:', response.status);
+      await new Promise(resolve => setTimeout(resolve, 500));
+      return { success: true, message: 'FRAT 貼付けステータスを更新しました' };
+    } catch (error) {
+      console.error('❌ updateFratAttachmentStatus error:', error);
+      return { success: false, message: error.message };
+    }
+  },
+
+  async sendDeletionRequestEmail(serial, statusA, user) {
+    try {
+      const webhookUrl = process.env.REACT_APP_GAS_WEBHOOK_URL;
+      const gasPayload = {
+        action: 'sendDeletionRequest',
+        serial: serial,
+        statusA: statusA,
+        user: user
+      };
+      console.log('📤 sendDeletionRequestEmail sending to GAS:', gasPayload);
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(gasPayload)
+      });
+      console.log('✅ GAS Webhook Response:', response.status);
+      await new Promise(resolve => setTimeout(resolve, 500));
+      return { success: true, message: '削除依頼メールを送信しました' };
+    } catch (error) {
+      console.error('❌ sendDeletionRequestEmail error:', error);
+      return { success: false, message: error.message };
+    }
+  },
+
+  async sendNewLocationRequestEmail(locationInfo, user) {
+    try {
+      const webhookUrl = process.env.REACT_APP_GAS_WEBHOOK_URL;
+      const gasPayload = {
+        action: 'sendLocationRequest',
+        locationInfo: locationInfo,
+        user: user
+      };
+      console.log('📤 sendNewLocationRequestEmail sending to GAS:', gasPayload);
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(gasPayload)
+      });
+      console.log('✅ GAS Webhook Response:', response.status);
+      await new Promise(resolve => setTimeout(resolve, 500));
+      return { success: true, message: '新規仮置き場所登録依頼を送信しました' };
+    } catch (error) {
+      console.error('❌ sendNewLocationRequestEmail error:', error);
+      return { success: false, message: error.message };
+    }
+  },
+
+  async deletePart(rowIndex, serial, user) {
+    try {
+      const webhookUrl = process.env.REACT_APP_GAS_WEBHOOK_URL;
+      const gasPayload = {
+        action: 'deletePart',
+        rowIndex: rowIndex,
+        serial: serial,
+        user: user
+      };
+      console.log('📤 deletePart sending to GAS:', gasPayload);
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(gasPayload)
+      });
+      console.log('✅ GAS Webhook Response:', response.status);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log('✅ パーツ削除成功');
+      return { success: true, message: 'パーツが正常に削除されました', serial: serial };
+    } catch (error) {
+      console.error('❌ deletePart error:', error);
+      return { success: false, message: error.message };
+    }
+  },
+
+  // ===== 既存マスタ取得メソッド =====
+
+  async getPartsList() {
+    try {
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_ID}/values/パーツ在庫簿?key=${GOOGLE_API_KEY}`;
+      const response = await fetch(url);
+      const data = await response.json();
+      if (!data.values || data.values.length <= 1) {
+        return [];
+      }
+      const parts = data.values.slice(1)
+        .filter(row => row && row[1])
+        .map((row, index) => ({
+          rowIndex: index + 2,
+          serial: String(row[1] || '').trim(),
+          building: String(row[2] || '').trim(),
+          floor: String(row[3] || '').trim(),
+          area: String(row[4] || '').trim(),
+          pillar: String(row[5] || '').trim(),
+          category: String(row[6] || '').trim(),
+          statusA: String(row[7] || '').trim(),
+          statusB: String(row[8] || '').trim(),
+          user: String(row[9] || '').trim(),
+          notes: String(row[10] || '').trim(),
+          changeHistory: row[11] ? JSON.parse(row[11]) : [],
+          registeredDate: String(row[0] || '').trim()
+        }));
+      console.log('✅ getPartsList loaded:', parts.length, 'parts');
+      return parts;
+    } catch (error) {
+      console.error('❌ getPartsList error:', error);
+      return [];
+    }
+  },
+
+  async getSerialPrefixes() {
+    try {
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_ID}/values/シリアル頭文字マスタ?key=${GOOGLE_API_KEY}`;
+      const response = await fetch(url);
+      const data = await response.json();
+      const prefixes = (data.values || []).slice(0).map(row => String(row[0] || '').trim()).filter(p => p);
+      console.log('✅ Serial prefixes loaded:', prefixes.length);
+      return prefixes;
+    } catch (error) {
+      console.error('❌ getSerialPrefixes error:', error);
+      return [];
+    }
+  },
+
+  async getStatusA() {
+    try {
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_ID}/values/ステータスマスタ?key=${GOOGLE_API_KEY}`;
+      const response = await fetch(url);
+      const data = await response.json();
+      const statusA = (data.values || []).slice(1).map(row => String(row[0] || '').trim()).filter(s => s);
+      console.log('✅ Status A loaded:', statusA.length);
+      return statusA;
+    } catch (error) {
+      console.error('❌ getStatusA error:', error);
+      return [];
+    }
+  },
+
+  async getStatusB() {
+    try {
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_ID}/values/ステータスマスタ?key=${GOOGLE_API_KEY}`;
+      const response = await fetch(url);
+      const data = await response.json();
+      const statusB = (data.values || []).slice(1).map(row => String(row[1] || '').trim()).filter(s => s);
+      console.log('✅ Status B loaded:', statusB.length);
+      return statusB;
+    } catch (error) {
+      console.error('❌ getStatusB error:', error);
+      return [];
+    }
+  },
+
+  async getLocationMaster() {
+    try {
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_ID}/values/仮置き場所マスタ?key=${GOOGLE_API_KEY}`;
+      const response = await fetch(url);
+      const data = await response.json();
+      if (!data.values || data.values.length <= 1) {
+        console.log('⚠️ getLocationMaster: No data found');
+        return [];
+      }
+      const locations = data.values.slice(1)
+        .filter(row => row && row[0] && row[1] && row[2] && row[3] && row[4])
+        .map(row => {
+          const building = String(row[0] || '').trim();
+          const floor = String(row[1] || '').trim();
+          const area = String(row[2] || '').trim();
+          const pillar = String(row[3] || '').trim();
+          const category = String(row[4] || '').trim();
+          return `${building}-${floor}-${area}_${pillar}(${category})`;
+        });
+      console.log('✅ Location master loaded:', locations.length);
+      return locations;
+    } catch (error) {
+      console.error('❌ getLocationMaster error:', error);
+      return [];
+    }
+  }
+};
+
+export const fetchProductsFromSheets = () => sheetsService.getPartsList();
+export const getLocationMaster = () => sheetsService.getLocationMaster();
+export const getSerialPrefixes = () => sheetsService.getSerialPrefixes();
+export const getStatusA = () => sheetsService.getStatusA();
+export const getStatusB = () => sheetsService.getStatusB();
+export const registerNewPart = (payload) => sheetsService.registerNewPart(payload);
+export const updatePart = (payload) => sheetsService.updatePart(payload);
+export const checkFratExists = (serial) => sheetsService.checkFratExists(serial);
+export const updateFratAttachmentStatus = (serial, user) => sheetsService.updateFratAttachmentStatus(serial, user);
+export const sendDeletionRequestEmail = (serial, statusA, user) => sheetsService.sendDeletionRequestEmail(serial, statusA, user);
+export const sendNewLocationRequestEmail = (locationInfo, user) => sheetsService.sendNewLocationRequestEmail(locationInfo, user);
+export const deletePart = (rowIndex, serial, user) => sheetsService.deletePart(rowIndex, serial, user);

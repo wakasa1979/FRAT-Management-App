@@ -1,0 +1,205 @@
+import React, { useState } from 'react';
+import LoginScreen from './components/LoginScreen';
+import PartsListView from './components/PartsListView';
+import CustomKeyboard from './components/CustomKeyboard';
+import { sheetsService } from './services/sheetsService';
+import './App.css';
+
+function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState({ userId: '', userName: '' });
+  const [showKeyboard, setShowKeyboard] = useState(false);
+  const [keyboardMode, setKeyboardMode] = useState('register'); // 'register' or 'search'
+  const [allParts, setAllParts] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState('unused'); // 'unused', 'frat-list', 'frat-attached', 'frat-waiting', 'frat-none'
+
+  // ログイン処理
+  const handleLogin = (userData) => {
+    setUser(userData);
+    setIsLoggedIn(true);
+    loadParts();
+  };
+
+  // Google Sheets からパーツデータを取得
+  const loadParts = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const parts = await sheetsService.getPartsList();
+      setAllParts(parts || []);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // シリアル入力画面を開く（新規登録モード）
+  const handleRegisterNew = () => {
+    setKeyboardMode('register');
+    setShowKeyboard(true);
+  };
+
+  // シリアル入力画面を開く（検索モード）
+  const handleSearchSerial = () => {
+    setKeyboardMode('search');
+    setShowKeyboard(true);
+  };
+
+  // シリアル入力完了時の処理
+  const handleSerialSubmit = async (serial) => {
+    try {
+      if (keyboardMode === 'register') {
+        // 新規登録：sheetsService を呼び出す
+        console.log('新規登録:', serial);
+        setLoading(true);
+        
+        const response = await sheetsService.registerPart({
+          serial,
+          prefix: 'PREFIX',
+          building: '第1棟',
+          storageLocation: '',
+          registeredBy: user.userId
+        });
+        
+        if (response.success) {
+          console.log('パーツ登録成功:', response);
+          // パーツリストを再読み込み
+          await loadParts();
+        } else {
+          setError(response.message || 'パーツ登録に失敗しました');
+        }
+      } else if (keyboardMode === 'search') {
+        // 検索：sheetsService を呼び出す
+        console.log('検索:', serial);
+        setLoading(true);
+        
+        const response = await sheetsService.searchSerial(serial);
+        
+        if (response.success) {
+          if (response.found) {
+            console.log('検索結果:', response.part);
+            // TODO：検索結果を表示するモーダルを実装
+          } else {
+            setError('このシリアルは見つかりません');
+          }
+        } else {
+          setError(response.message || 'シリアル検索に失敗しました');
+        }
+      }
+      setShowKeyboard(false);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ログアウト処理
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setUser({ userId: '', userName: '' });
+    setAllParts([]);
+    setError(null);
+  };
+
+  // タブ切り替え
+  const handleTabChange = (tabName) => {
+    setActiveTab(tabName);
+  };
+
+  if (!isLoggedIn) {
+    return <LoginScreen onLogin={handleLogin} />;
+  }
+
+  return (
+    <div className="App">
+      <header className="app-header">
+        <h1>FRAT パーツ貼付け管理</h1>
+        <div className="header-info">
+          <span>ユーザー：{user.userName}</span>
+          <button className="btn-logout" onClick={handleLogout}>ログアウト</button>
+        </div>
+      </header>
+
+      <main className="app-main">
+        <div className="action-buttons">
+          <button className="btn-register" onClick={handleRegisterNew}>
+            + 新規パーツ登録
+          </button>
+          <button className="btn-search" onClick={handleSearchSerial}>
+            🔍 シリアル検索
+          </button>
+          <button className="btn-refresh" onClick={loadParts}>
+            🔄 更新
+          </button>
+        </div>
+
+        {error && (
+          <div className="error-banner">
+            <p>⚠️ {error}</p>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="loading">
+            <p>データを読み込み中...</p>
+          </div>
+        ) : (
+          <>
+            <div className="tab-navigation">
+              <button 
+                className={`tab ${activeTab === 'unused' ? 'active' : ''}`}
+                onClick={() => handleTabChange('unused')}
+              >
+                未使用パーツ
+              </button>
+              <button 
+                className={`tab ${activeTab === 'frat-list' ? 'active' : ''}`}
+                onClick={() => handleTabChange('frat-list')}
+              >
+                FRAT一覧
+              </button>
+              <button 
+                className={`tab ${activeTab === 'frat-attached' ? 'active' : ''}`}
+                onClick={() => handleTabChange('frat-attached')}
+              >
+                FRAT貼付済み
+              </button>
+              <button 
+                className={`tab ${activeTab === 'frat-waiting' ? 'active' : ''}`}
+                onClick={() => handleTabChange('frat-waiting')}
+              >
+                FRAT待ち
+              </button>
+              <button 
+                className={`tab ${activeTab === 'frat-none' ? 'active' : ''}`}
+                onClick={() => handleTabChange('frat-none')}
+              >
+                FRAT無い現物
+              </button>
+            </div>
+
+            <PartsListView 
+              parts={allParts}
+              activeTab={activeTab}
+              user={user}
+            />
+          </>
+        )}
+      </main>
+
+      {showKeyboard && (
+        <CustomKeyboard
+          onSerialSubmit={handleSerialSubmit}
+          onCancel={() => setShowKeyboard(false)}
+          isLoading={loading}
+        />
+      )}
+    </div>
+  );
+}
+
+export default App;

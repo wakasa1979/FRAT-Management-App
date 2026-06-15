@@ -1,0 +1,884 @@
+import React, { useState, useEffect } from 'react';
+import './PartsListView.css';
+import RegisterPartModal from './RegisterPartModal';
+import {
+  fetchProductsFromSheets,
+  checkFratExists,
+  updateShipmentConfirmationTimestamp,
+  updateStatusBAndMarkFratTimestamp,
+  updatePart,
+  sendDeletionRequestEmail,
+  deletePart,
+  getLocationMaster,
+  getStatusA,
+  getStatusB,
+  getSerialPrefixes
+} from '../services/sheetsService';
+
+const PartsListView = ({ currentUser, onLogout, onNavigate, locationMaster }) => {
+  const [products, setProducts] = useState([]);
+  const [filteredProducts, setFilteredProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filterCriteria, setFilterCriteria] = useState({
+    buildingLocation: '',
+    building: '',
+    statusA: '',
+    statusB: ''
+  });
+  const [showSearchPanel, setShowSearchPanel] = useState(false);
+  const [selectedPart, setSelectedPart] = useState(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [editingPart, setEditingPart] = useState(null);
+  const [editFormData, setEditFormData] = useState({});
+  const [statusAOptions, setStatusAOptions] = useState([]);
+  const [statusBOptions, setStatusBOptions] = useState([]);
+  const [serialPrefixes, setSerialPrefixes] = useState([]);
+  const [fratStatusMap, setFratStatusMap] = useState({});
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const restrictedStatusBItems = ['FRAT/送り状貼付け済み', 'FRATのみ貼付け済み', '送り状のみ貼付け済み'];
+  const allowedStatusAForRestrictedB = ['使用済みパーツ', 'その他', '未使用返却', 'DOA'];
+
+  // ステータスA/B の色マッピング
+  const statusColorMap = {
+    statusA: {
+      '未使用・使用前': { bg: '#FFE0E6', text: '#000' },
+      '使用済みパーツ': { bg: '#E0F7FF', text: '#000' },
+      '未使用返却': { bg: '#E0F7FF', text: '#000' },
+      'DOA': { bg: '#E0F7FF', text: '#000' },
+      '不明': { bg: '#FFFACD', text: '#000' },
+      'その他': { bg: '#FFFACD', text: '#000' },
+      '保留': { bg: '#D32F2F', text: '#FFF' },
+      '削除依頼': { bg: '#D32F2F', text: '#FFD700' }
+    },
+    statusB: {
+      'FRAT/送り状貼付け済み': { bg: '#E0F7FF', text: '#000' },
+      'FRATのみ貼付け済み': { bg: '#FFFACD', text: '#000' },
+      '送り状のみ貼付け済み': { bg: '#FFFACD', text: '#000' },
+      'その他': { bg: '#FFFACD', text: '#000' },
+      '出荷不可': { bg: '#D32F2F', text: '#FFF' },
+      '使用不可': { bg: '#D32F2F', text: '#FFF' }
+    }
+  };
+
+  const getUserId = () => {
+    if (typeof currentUser === 'string') return currentUser;
+    if (currentUser && currentUser.userId) return currentUser.userId;
+    return 'Unknown';
+  };
+
+  const getUserName = () => {
+    if (typeof currentUser === 'string') return currentUser;
+    if (currentUser && currentUser.name) return currentUser.name;
+    return 'Unknown';
+  };
+
+  const isAdmin = () => {
+    if (currentUser && currentUser.isAdmin) return true;
+    if (currentUser && currentUser.role === 'admin') return true;
+    return false;
+  };
+
+  const isStatusBDisabled = (statusBItem) => {
+    if (!restrictedStatusBItems.includes(statusBItem)) {
+      return false;
+    }
+    return !allowedStatusAForRestrictedB.includes(editFormData.statusA);
+  };
+
+  // シリアルナンバーの桁数に応じたクラス名を返す
+  const getSerialNumberClass = (serial) => {
+    const length = serial.length;
+    if (length <= 12) return 'card-serial-number';
+    if (length <= 14) return 'card-serial-number serial-long';
+    return 'card-serial-number serial-very-long';
+  };
+
+  // ステータスA の色を取得
+  const getStatusAStyle = (statusA) => {
+    return statusColorMap.statusA[statusA] || { bg: '#FF9800', text: '#FFF' };
+  };
+
+  // ステータスB の色を取得
+  const getStatusBStyle = (statusB) => {
+    return statusColorMap.statusB[statusB] || { bg: '#FFFACD', text: '#000' };
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  useEffect(() => {
+    filterProducts();
+  }, [products, filterCriteria]);
+
+  // 🐛 デバッグログ：fratStatusMap の内容を確認
+  useEffect(() => {
+    console.log('🐛 DEBUG fratStatusMap:', fratStatusMap);
+    console.log('🐛 DEBUG products count:', products.length);
+    if (products.length > 0) {
+      console.log('🐛 DEBUG first product:', products[0]);
+      console.log('🐛 DEBUG first product FRAT status:', fratStatusMap[products[0].serial]);
+    }
+  }, [fratStatusMap, products]);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      console.log('📚 Loading all data...');
+      const [parts, statusA, statusB, prefixes] = await Promise.all([
+        fetchProductsFromSheets(),
+        getStatusA(),
+        getStatusB(),
+        getSerialPrefixes()
+      ]);
+
+      console.log('✅ Data loaded:', parts.length, 'parts');
+      setProducts(parts);
+      setStatusAOptions(statusA);
+      setStatusBOptions(statusB);
+      setSerialPrefixes(prefixes);
+
+      const fratMap = {};
+      for (const part of parts) {
+        const fratResult = await checkFratExists(part.serial);
+        fratMap[part.serial] = fratResult.exists;
+      }
+      setFratStatusMap(fratMap);
+      console.log('🐛 DEBUG Final fratStatusMap:', fratMap);
+
+      setLoading(false);
+    } catch (error) {
+      console.error('❌ Error loading data:', error);
+      setLoading(false);
+    }
+  };
+
+  const filterProducts = () => {
+    let filtered = products.filter(p => 
+      !p.shipmentTimestamp || p.shipmentTimestamp.trim().length === 0
+    );
+
+    // 場所でフィルター
+    if (filterCriteria.buildingLocation) {
+      filtered = filtered.filter(p => 
+        p.buildingLocation === filterCriteria.buildingLocation
+      );
+    }
+
+    // 棟でフィルター
+    if (filterCriteria.building) {
+      filtered = filtered.filter(p => p.building === filterCriteria.building);
+    }
+
+    // ステータスA でフィルター
+    if (filterCriteria.statusA) {
+      filtered = filtered.filter(p => p.statusA === filterCriteria.statusA);
+    }
+
+    // ステータスB でフィルター
+    if (filterCriteria.statusB) {
+      filtered = filtered.filter(p => p.statusB === filterCriteria.statusB);
+    }
+
+    // 🔧 複合キーでソート：building → floor → division1 → pillarNumber
+    filtered.sort((a, b) => {
+      // 優先度1：building (Y2など)
+      const buildingCompare = (a.building || '').localeCompare(b.building || '', 'ja');
+      if (buildingCompare !== 0) return buildingCompare;
+      
+      // 優先度2：floor (2階など)
+      const floorCompare = (a.floor || '').localeCompare(b.floor || '', 'ja');
+      if (floorCompare !== 0) return floorCompare;
+      
+      // 優先度3：division1 (外周など)
+      const div1Compare = (a.division1 || '').localeCompare(b.division1 || '', 'ja');
+      if (div1Compare !== 0) return div1Compare;
+      
+      // 優先度4：pillarNumber (E(東)35など)
+      return (a.pillarNumber || '').localeCompare(b.pillarNumber || '', 'ja');
+    });
+
+    setFilteredProducts(filtered);
+  };
+
+  const handleDetailClick = (part) => {
+    setSelectedPart(part);
+    setShowDetailModal(true);
+  };
+
+  const handleEditClick = (part) => {
+    setEditingPart(part);
+    setEditFormData({
+      serial: part.serial,
+      building: part.building,
+      floor: part.floor,
+      division1: part.division1,
+      pillarNumber: part.pillarNumber,
+      division2: part.division2,
+      buildingLocation: part.buildingLocation,
+      statusA: part.statusA,
+      statusB: part.statusB,
+      notes: part.notes
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditFormChange = (field, value) => {
+    setEditFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleLocationChange = (locObject) => {
+    if (!locObject) return;
+    setEditFormData(prev => ({
+      ...prev,
+      building: locObject.building,
+      floor: locObject.floor,
+      division1: locObject.division1,
+      pillarNumber: locObject.pillarNumber,
+      division2: locObject.division2,
+      buildingLocation: locObject.display
+    }));
+  };
+
+  const handleUpdatePart = async () => {
+    console.log('📝 handleUpdatePart called');
+    setIsUpdating(true);
+
+    try {
+      const userId = getUserId();
+      const userName = getUserName();
+
+      const isStatusBChanging = editingPart.statusB !== editFormData.statusB;
+      const isBecomingFratStatus = 
+        editFormData.statusB === 'FRAT/送り状貼付け済み' && 
+        editingPart.statusB !== 'FRAT/送り状貼付け済み';
+
+      console.log('Status B changing:', isStatusBChanging);
+      console.log('Becoming FRAT status:', isBecomingFratStatus);
+
+      const updateResult = await updatePart({
+        rowIndex: editingPart.rowIndex,
+        serial: editFormData.serial,
+        building: editFormData.building,
+        floor: editFormData.floor,
+        division1: editFormData.division1,
+        pillarNumber: editFormData.pillarNumber,
+        division2: editFormData.division2,
+        statusA: editFormData.statusA,
+        statusB: editFormData.statusB,
+        notes: editFormData.notes,
+        user: userId
+      });
+
+      console.log('updatePart result:', updateResult);
+
+      if (isBecomingFratStatus) {
+        console.log('📌 Marking FRAT timestamp...');
+        await updateStatusBAndMarkFratTimestamp(
+          editingPart.rowIndex,
+          editFormData.serial,
+          editFormData.statusB,
+          userName
+        );
+      }
+
+      console.log('⏳ Reloading data...');
+      await loadData();
+      console.log('✅ Data reloaded successfully');
+
+      setShowEditModal(false);
+      alert('パーツを更新しました');
+    } catch (error) {
+      console.error('❌ handleUpdatePart error:', error);
+      alert('更新に失敗しました: ' + error.message);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleFratBadgeClick = async (part) => {
+    console.log('🎯 FratBadge clicked:', part.serial);
+    
+    if (!window.confirm(`使用済みパーツとして、「FRAT&送り状添付済み」の「出荷待機状態」に変更しますか？\n\nシリアル: ${part.serial}`)) {
+      return;
+    }
+
+    setIsUpdating(true);
+
+    try {
+      const userId = getUserId();
+      const userName = getUserName();
+
+      const updateResult = await updatePart({
+        rowIndex: part.rowIndex,
+        serial: part.serial,
+        building: part.building,
+        floor: part.floor,
+        division1: part.division1,
+        pillarNumber: part.pillarNumber,
+        division2: part.division2,
+        statusA: '使用済みパーツ',
+        statusB: 'FRAT/送り状貼付け済み',
+        notes: part.notes,
+        user: userId
+      });
+
+      console.log('updatePart result:', updateResult);
+
+      await updateStatusBAndMarkFratTimestamp(
+        part.rowIndex,
+        part.serial,
+        'FRAT/送り状貼付け済み',
+        userName
+      );
+
+      console.log('⏳ Reloading data...');
+      await loadData();
+      console.log('✅ Data reloaded successfully');
+
+      alert('出荷待機状態に変更しました');
+    } catch (error) {
+      console.error('❌ handleFratBadgeClick error:', error);
+      alert('更新に失敗しました: ' + error.message);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleShipmentConfirmed = async (part) => {
+    console.log('🚀 handleShipmentConfirmed called:', part.serial);
+    setIsUpdating(true);
+
+    try {
+      const userId = getUserId();
+      const userName = getUserName();
+
+      const result = await updateShipmentConfirmationTimestamp(
+        part.rowIndex,
+        part.serial,
+        userName
+      );
+      console.log('updateShipmentConfirmationTimestamp result:', result);
+
+      await loadData();
+      alert('出荷確認を完了しました');
+    } catch (error) {
+      console.error('❌ handleShipmentConfirmed error:', error);
+      alert('出荷確認に失敗しました: ' + error.message);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleDeleteRequest = async (part) => {
+    try {
+      const userId = getUserId();
+      await sendDeletionRequestEmail(part.serial, part.statusA, userId);
+      alert('削除依頼メールを送信しました');
+    } catch (error) {
+      console.error('❌ Delete request error:', error);
+      alert('削除依頼に失敗しました');
+    }
+  };
+
+  const handleDirectDelete = async (part) => {
+    if (window.confirm(`${part.serial} を削除しますか？（この操作は取り消せません）`)) {
+      try {
+        const userId = getUserId();
+        setIsUpdating(true);
+        await deletePart(part.rowIndex, part.serial, userId);
+        await loadData();
+        alert('パーツを削除しました');
+      } catch (error) {
+        console.error('❌ Direct delete error:', error);
+        alert('削除に失敗しました');
+      } finally {
+        setIsUpdating(false);
+      }
+    }
+  };
+
+  const FratBadge = ({ statusA, statusB, serial, part, onFratBadgeClick }) => {
+    const shouldShowBadge = 
+      ['使用済みパーツ', '未使用返却', 'DOA', 'その他'].includes(statusA) &&
+      !['FRAT/送り状貼付け済み', 'FRATのみ貼付け済み'].includes(statusB) &&
+      fratStatusMap[serial] === true;
+
+    // 🐛 デバッグログ
+    if (serial === 'NFV2BS-092' || serial === 'MPCIPCL-405C' || serial === 'Y-LIDNOZL-233B') {
+      console.log('🐛 FratBadge debug:', {
+        serial,
+        statusA,
+        statusB,
+        fratStatusMap_value: fratStatusMap[serial],
+        shouldShowBadge
+      });
+    }
+
+    if (!shouldShowBadge) return null;
+
+    return (
+      <div 
+        className="frat-badge"
+        onClick={() => onFratBadgeClick(part)}
+        style={{ cursor: 'pointer' }}
+      >
+        <div className="frat-badge-inner">
+          <div className="frat-badge-text">FRAT</div>
+          <div className="frat-badge-text-ja">あり</div>
+        </div>
+      </div>
+    );
+  };
+
+  const PartCard = ({ part }) => {
+    const isFratStatus = part.statusB === 'FRAT/送り状貼付け済み';
+    const statusAStyle = getStatusAStyle(part.statusA);
+    const statusBStyle = getStatusBStyle(part.statusB);
+    const serialNumberClass = getSerialNumberClass(part.serial);
+
+    return (
+      <div className={`part-card ${isFratStatus ? 'frat-status' : ''}`}>
+        <FratBadge 
+          statusA={part.statusA} 
+          statusB={part.statusB} 
+          serial={part.serial}
+          part={part}
+          onFratBadgeClick={handleFratBadgeClick}
+        />
+        
+        <div className="card-serial-section">
+          <div className="card-label-small">シリアル番号</div>
+          <div className={serialNumberClass}>{part.serial}</div>
+        </div>
+
+        <div className="card-status-section">
+          <div 
+            className="status-a-badge"
+            style={{ backgroundColor: statusAStyle.bg, color: statusAStyle.text }}
+          >
+            {part.statusA}
+          </div>
+          <div 
+            className="status-b-badge"
+            style={{ backgroundColor: statusBStyle.bg, color: statusBStyle.text }}
+          >
+            {part.statusB}
+          </div>
+        </div>
+
+        <div className="card-info-section">
+          <div className="info-row">
+            <span className="info-label">場所:</span>
+            <span className="info-value">{part.buildingLocation}</span>
+          </div>
+          <div className="info-row">
+            <span className="info-label">登録年月日:</span>
+            <span className="info-value">{part.registeredDate}</span>
+          </div>
+          <div className="info-row">
+            <span className="info-label">登録者:</span>
+            <span className="info-value">{part.registeredBy || 'Unknown'}</span>
+          </div>
+          <div className="info-row">
+            <span className="info-label">備考:</span>
+            <span className="info-value">{part.notes || '-'}</span>
+          </div>
+        </div>
+
+        {isFratStatus ? (
+          <button 
+            className="shipment-confirm-btn"
+            onClick={() => handleShipmentConfirmed(part)}
+            disabled={isUpdating}
+          >
+            🔴 出荷確認完了
+          </button>
+        ) : (
+          <div className="card-button-section">
+            <button 
+              className="card-button edit-btn" 
+              onClick={() => handleEditClick(part)}
+              disabled={isUpdating}
+            >
+              ✏️ 編集
+            </button>
+            <button 
+              className="card-button detail-btn" 
+              onClick={() => handleDetailClick(part)}
+              disabled={isUpdating}
+            >
+              🔍 詳細
+            </button>
+            {isAdmin() && (
+              <button 
+                className="card-button delete-btn" 
+                onClick={() => handleDirectDelete(part)}
+                disabled={isUpdating}
+              >
+                🗑️ 削除
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  if (loading) {
+    return <div className="loading">読み込み中...</div>;
+  }
+
+  const uniqueLocations = [...new Set(products.map(p => p.buildingLocation).filter(l => l))];
+  const uniqueBuildings = [...new Set(products.map(p => p.building).filter(b => b))];
+
+  return (
+    <div className="parts-list-view">
+      <div className="header">
+        <div className="header-left">
+          <button className="back-to-menu-btn" onClick={() => onNavigate('menu')}>
+            ← メニューに戻る
+          </button>
+          <h1>FRAT パーツ管理システム</h1>
+        </div>
+        <div className="header-actions">
+          <button 
+            className="register-btn"
+            onClick={() => setShowRegisterModal(true)}
+            disabled={isUpdating}
+          >
+            ➕ 新規登録
+          </button>
+          <span className="user-name">ユーザー: {getUserName()} {isAdmin() ? '(管理者)' : ''}</span>
+          <button className="logout-btn" onClick={onLogout}>ログアウト</button>
+        </div>
+      </div>
+
+      <div className="search-controls">
+        <button
+          className="search-toggle-btn"
+          onClick={() => setShowSearchPanel(!showSearchPanel)}
+        >
+          {showSearchPanel ? '🔍 絞込みを閉じる' : '🔍 絞込みを開く'}
+        </button>
+      </div>
+
+      {showSearchPanel && (
+        <div className="search-panel">
+          <div className="filter-group">
+            <label>場所:</label>
+            <select
+              value={filterCriteria.buildingLocation}
+              onChange={(e) => setFilterCriteria({ ...filterCriteria, buildingLocation: e.target.value })}
+              className="filter-select"
+            >
+              <option value="">すべて</option>
+              {uniqueLocations.map((loc, idx) => (
+                <option key={idx} value={loc}>{loc}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="filter-group">
+            <label>棟:</label>
+            <select
+              value={filterCriteria.building}
+              onChange={(e) => setFilterCriteria({ ...filterCriteria, building: e.target.value })}
+              className="filter-select"
+            >
+              <option value="">すべて</option>
+              {uniqueBuildings.map((building, idx) => (
+                <option key={idx} value={building}>{building}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="filter-group">
+            <label>ステータスA:</label>
+            <select
+              value={filterCriteria.statusA}
+              onChange={(e) => setFilterCriteria({ ...filterCriteria, statusA: e.target.value })}
+              className="filter-select"
+            >
+              <option value="">すべて</option>
+              {statusAOptions.map((status, idx) => (
+                <option key={idx} value={status}>{status}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="filter-group">
+            <label>ステータスB:</label>
+            <select
+              value={filterCriteria.statusB}
+              onChange={(e) => setFilterCriteria({ ...filterCriteria, statusB: e.target.value })}
+              className="filter-select"
+            >
+              <option value="">すべて</option>
+              {statusBOptions.map((status, idx) => (
+                <option key={idx} value={status}>{status}</option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            className="clear-filter-btn"
+            onClick={() => {
+              setFilterCriteria({ buildingLocation: '', building: '', statusA: '', statusB: '' });
+            }}
+          >
+            🔄 リセット
+          </button>
+        </div>
+      )}
+
+      <div className="parts-count">
+        表示中: {filteredProducts.length} / 待機中: {products.filter(p => !p.shipmentTimestamp || p.shipmentTimestamp.trim().length === 0).length} パーツ
+      </div>
+
+      <div className="parts-grid">
+        {filteredProducts.length > 0 ? (
+          filteredProducts.map((part) => (
+            <PartCard key={part.serial} part={part} />
+          ))
+        ) : (
+          <div className="no-products">パーツが見つかりません</div>
+        )}
+      </div>
+
+      {showDetailModal && selectedPart && (
+        <DetailModal
+          part={selectedPart}
+          onClose={() => setShowDetailModal(false)}
+        />
+      )}
+
+      {showEditModal && editingPart && (
+        <EditModal
+          part={editingPart}
+          formData={editFormData}
+          onFormChange={handleEditFormChange}
+          onLocationChange={handleLocationChange}
+          onUpdate={handleUpdatePart}
+          onClose={() => setShowEditModal(false)}
+          onDeleteRequest={handleDeleteRequest}
+          statusAOptions={statusAOptions}
+          statusBOptions={statusBOptions}
+          locationMaster={locationMaster}
+          isAdmin={isAdmin()}
+          isStatusBDisabled={isStatusBDisabled}
+          isUpdating={isUpdating}
+        />
+      )}
+
+      {showRegisterModal && (
+        <RegisterPartModal
+          locationMaster={locationMaster}
+          onSubmit={async () => {
+            await loadData();
+            setShowRegisterModal(false);
+          }}
+          onCancel={() => setShowRegisterModal(false)}
+          isLoading={isUpdating}
+          currentUser={currentUser}
+        />
+      )}
+    </div>
+  );
+};
+
+const DetailModal = ({ part, onClose }) => {
+  return (
+    <div className="modal-overlay" onClick={(e) => {
+      if (e.target === e.currentTarget) {
+        onClose();
+      }
+    }}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>パーツ詳細</h2>
+          <button className="modal-close-btn" onClick={onClose}>×</button>
+        </div>
+        <div className="modal-body">
+          <div className="detail-row">
+            <label>シリアル番号:</label>
+            <span>{part.serial}</span>
+          </div>
+          <div className="detail-row">
+            <label>置き場所:</label>
+            <span>{part.buildingLocation}</span>
+          </div>
+          <div className="detail-row">
+            <label>ステータスA:</label>
+            <span>{part.statusA}</span>
+          </div>
+          <div className="detail-row">
+            <label>ステータスB:</label>
+            <span>{part.statusB}</span>
+          </div>
+          <div className="detail-row">
+            <label>備考:</label>
+            <span>{part.notes || 'なし'}</span>
+          </div>
+          <div className="detail-row">
+            <label>登録日:</label>
+            <span>{part.registeredDate}</span>
+          </div>
+          {part.changeHistory && Array.isArray(part.changeHistory) && part.changeHistory.length > 0 && (
+            <div className="detail-row">
+              <label>変更履歴:</label>
+              <div className="change-history">
+                {part.changeHistory.map((change, idx) => (
+                  <div key={idx} className="history-item">
+                    <small>{change.timestamp} - {change.changedBy}</small>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="modal-footer">
+          <button className="modal-close-btn" onClick={onClose}>閉じる</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const EditModal = ({ 
+  part, 
+  formData, 
+  onFormChange, 
+  onLocationChange,
+  onUpdate, 
+  onClose,
+  onDeleteRequest,
+  statusAOptions,
+  statusBOptions,
+  locationMaster,
+  isAdmin,
+  isStatusBDisabled,
+  isUpdating
+}) => {
+  return (
+    <div className="modal-overlay" onClick={(e) => {
+      if (e.target === e.currentTarget) {
+        onClose();
+      }
+    }}>
+      <div className="modal-content edit-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>パーツ編集</h2>
+          <button className="modal-close-btn" onClick={onClose}>×</button>
+        </div>
+        <div className="modal-body">
+          <div className="form-group">
+            <label>シリアル番号:</label>
+            <input
+              type="text"
+              value={formData.serial || ''}
+              onChange={(e) => onFormChange('serial', e.target.value)}
+              disabled
+            />
+          </div>
+
+          <div className="form-group">
+            <label>置き場所:</label>
+            <select
+              value={formData.buildingLocation || ''}
+              onChange={(e) => {
+                const selectedLoc = locationMaster.find(loc => loc.display === e.target.value);
+                if (selectedLoc) {
+                  onLocationChange(selectedLoc);
+                }
+              }}
+            >
+              <option value="">選択してください</option>
+              {locationMaster && locationMaster.map((loc, idx) => (
+                <option key={idx} value={loc.display}>{loc.display}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>ステータスA:</label>
+            <select
+              value={formData.statusA || ''}
+              onChange={(e) => onFormChange('statusA', e.target.value)}
+            >
+              <option value="">選択してください</option>
+              {statusAOptions.map((status, idx) => (
+                <option key={idx} value={status}>{status}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>ステータスB:</label>
+            <select
+              value={formData.statusB || ''}
+              onChange={(e) => onFormChange('statusB', e.target.value)}
+            >
+              <option value="">選択してください</option>
+              {statusBOptions.map((status, idx) => (
+                <option 
+                  key={idx} 
+                  value={status}
+                  disabled={isStatusBDisabled(status)}
+                  style={{
+                    color: isStatusBDisabled(status) ? '#ccc' : 'black',
+                    backgroundColor: isStatusBDisabled(status) ? '#f5f5f5' : 'white'
+                  }}
+                >
+                  {status}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>備考:</label>
+            <textarea
+              value={formData.notes || ''}
+              onChange={(e) => onFormChange('notes', e.target.value)}
+              rows="3"
+            />
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button 
+            className="modal-update-btn" 
+            onClick={onUpdate}
+            disabled={isUpdating}
+          >
+            {isUpdating ? '更新中...' : '更新'}
+          </button>
+          {!isAdmin && (
+            <button 
+              className="modal-delete-request-btn" 
+              onClick={() => onDeleteRequest(part)}
+              disabled={isUpdating}
+            >
+              削除依頼
+            </button>
+          )}
+          <button 
+            className="modal-close-btn" 
+            onClick={onClose}
+            disabled={isUpdating}
+          >
+            キャンセル
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default PartsListView;

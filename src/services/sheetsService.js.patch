@@ -1,0 +1,2 @@
+OLD: action: 'checkFrat',
+NEW: action: 'checkFratExists',

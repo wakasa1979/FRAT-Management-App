@@ -1,0 +1,220 @@
+.parts-list-view {
+  padding: 20px;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+}
+
+.view-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.view-header h2 {
+  margin: 0;
+  font-size: 36px;
+  font-weight: bold;
+  color: #333;
+}
+
+.search-btn {
+  padding: 12px 24px;
+  font-size: 18px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.search-btn:hover {
+  background-color: #45a049;
+}
+
+/* グリッドレイアウト */
+.parts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: 20px;
+}
+
+/* パーツカード */
+.part-card {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ロケーション情報 */
+.card-location {
+  background-color: #FFC107;
+  padding: 20px;
+  text-align: center;
+}
+
+.location-label {
+  font-size: 14px !important;
+  font-weight: bold;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.location-value {
+  font-size: 24px !important;
+  font-weight: bold;
+  color: #333;
+  word-break: break-word;
+}
+
+/* シリアル番号 */
+.card-serial {
+  background-color: #9C27B0;
+  padding: 30px 20px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+}
+
+.serial-number {
+  font-size: 64px !important;
+  font-weight: bold;
+  color: white;
+  word-break: break-word;
+  line-height: 1.2;
+}
+
+/* ステータス */
+.card-status {
+  padding: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  border-bottom: 1px solid #eee;
+}
+
+.badge {
+  padding: 12px 16px;
+  border-radius: 4px;
+  font-size: 18px !important;
+  font-weight: bold;
+  color: white;
+}
+
+.badge-status-a {
+  background-color: #FF5722;
+}
+
+.badge-status-b {
+  background-color: #2196F3;
+}
+
+/* 登録情報 */
+.card-info {
+  padding: 20px;
+  flex: 1;
+}
+
+.info-row {
+  display: flex;
+  margin-bottom: 12px;
+  font-size: 16px !important;
+}
+
+.info-label {
+  font-weight: bold;
+  min-width: 100px;
+  color: #666;
+}
+
+.info-value {
+  flex: 1;
+  color: #333;
+  word-break: break-word;
+}
+
+.info-value.remarks {
+  font-style: italic;
+  color: #999;
+}
+
+/* ボタングループ */
+.card-actions {
+  display: flex;
+  gap: 10px;
+  padding: 20px;
+  border-top: 1px solid #eee;
+  justify-content: center;
+}
+
+.btn {
+  padding: 12px 20px;
+  font-size: 18px !important;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-weight: bold;
+}
+
+.btn-edit {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.btn-edit:hover {
+  background-color: #45a049;
+}
+
+.btn-detail {
+  background-color: #2196F3;
+  color: white;
+}
+
+.btn-detail:hover {
+  background-color: #0b7dda;
+}
+
+.btn-delete {
+  background-color: #f44336;
+  color: white;
+}
+
+.btn-delete:hover {
+  background-color: #da190b;
+}
+
+/* レスポンシブ */
+@media (max-width: 768px) {
+  .parts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .card-actions {
+    flex-direction: column;
+  }
+
+  .btn {
+    width: 100%;
+  }
+
+  .serial-number {
+    font-size: 48px !important;
+  }
+
+  .view-header {
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .search-btn {
+    width: 100%;
+  }
+}

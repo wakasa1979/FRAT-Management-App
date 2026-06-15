@@ -1,0 +1,188 @@
+const GAS_WEBHOOK_URL = process.env.REACT_APP_GAS_WEBHOOK_URL;
+const GOOGLE_SHEETS_ID = process.env.REACT_APP_GOOGLE_SHEETS_ID;
+const GOOGLE_API_KEY = process.env.REACT_APP_GOOGLE_API_KEY;
+
+export const sheetsService = {
+  // パーツ登録
+  async registerPart(payload) {
+    try {
+      console.log('Registering part with payload:', payload);
+      console.log('Using Webhook URL:', GAS_WEBHOOK_URL);
+
+      const response = await fetch(GAS_WEBHOOK_URL, {
+        method: 'POST',
+        mode: 'no-cors', // CORS プリフライト回避
+        headers: {
+          'Content-Type': 'text/plain' // no-cors では text/plain のみ
+        },
+        body: JSON.stringify({
+          action: 'register_part',
+          serial: payload.serial,
+          prefix: payload.prefix,
+          building: payload.building,
+          storageLocation: payload.storageLocation,
+          registeredBy: payload.registeredBy,
+          timestamp: new Date().toISOString()
+        })
+      });
+
+      console.log('GAS response status:', response.status);
+      
+      // no-cors では opaque response が返るため、status チェックはできない
+      // GAS が正常に受け取ったと仮定して、Google Sheets API から直接確認
+
+      // Google Sheets API で確認（待機）
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const partsData = await this.getPartsList();
+      const registered = partsData.find(p => p.serial === payload.serial);
+
+      if (registered) {
+        console.log('パーツ登録成功（Google Sheets API で確認）');
+        return {
+          success: true,
+          message: 'パーツが正常に登録されました',
+          serial: payload.serial
+        };
+      } else {
+        console.log('パーツ登録失敗（Google Sheets に反映されていない）');
+        return {
+          success: false,
+          message: 'パーツ登録に失敗しました'
+        };
+      }
+
+    } catch (error) {
+      console.error('registerPart error:', error);
+      return {
+        success: false,
+        message: error.message
+      };
+    }
+  },
+
+  // パーツ一覧取得（Google Sheets API 経由）
+
+  // ステータス更新
+  async updateStatus(payload) {
+    try {
+      const response = await fetch(GAS_WEBHOOK_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {
+          'Content-Type': 'text/plain'
+        },
+        body: JSON.stringify({
+          action: 'update_status',
+          serial: payload.serial,
+          newStatus: payload.newStatus,
+          updatedBy: payload.updatedBy,
+          timestamp: new Date().toISOString()
+        })
+      });
+
+      return { success: true, message: 'ステータスが更新されました' };
+    } catch (error) {
+      console.error('updateStatus error:', error);
+      return { success: false, message: error.message };
+    }
+  },
+
+  // シリアル検索
+  async searchSerial(serial) {
+    try {
+      const parts = await this.getPartsList();
+      const found = parts.find(p => p.serial === serial);
+      
+      if (found) {
+        return { success: true, found: true, part: found };
+      } else {
+        return { success: true, found: false, message: 'このシリアルは見つかりません' };
+      }
+    } catch (error) {
+      console.error('searchSerial error:', error);
+      return { success: false, message: error.message };
+    }
+  },
+
+  // ==================== 部分一致検索 ====================
+  async searchPartsByPartialMatch(query) {
+    try {
+      const parts = await this.getPartsList();
+      const lowerQuery = query.toLowerCase();
+
+      // シリアル、ユーザー、ロケーション、ステータス、備考から検索
+      const results = parts.filter((part) => {
+        return (
+          part.serial.toLowerCase().includes(lowerQuery) ||
+          part.user.toLowerCase().includes(lowerQuery) ||
+          part.location.toLowerCase().includes(lowerQuery) ||
+          part.status.toLowerCase().includes(lowerQuery) ||
+          part.notes.toLowerCase().includes(lowerQuery) ||
+          part.registeredDate.includes(query)
+        );
+      });
+
+      // 検索結果をシリアル順でソート
+      return results.sort((a, b) => a.serial.localeCompare(b.serial));
+    } catch (error) {
+      console.error('searchPartsByPartialMatch error:', error);
+      return [];
+    }
+  },
+
+  // ==================== ステータス遷移の定義 ====================
+  getStatusTransitions() {
+    return {
+      未使用: ['FRAT一覧', 'FRAT無い現物'],
+      'FRAT一覧': ['FRAT貼付済み', 'FRAT待ち', 'FRAT無い現物'],
+      'FRAT貼付済み': ['完了', 'FRAT一覧'],
+      'FRAT待ち': ['FRAT一覧', 'FRAT無い現物'],
+      'FRAT無い現物': ['FRAT一覧', '未使用'],
+      完了: ['FRAT一覧'],
+    };
+  },
+
+  // ==================== 有効な遷移かチェック ====================
+  canTransitionStatus(currentStatus, newStatus) {
+    const transitions = this.getStatusTransitions();
+    if (!transitions[currentStatus]) {
+      return false;
+    }
+    return transitions[currentStatus].includes(newStatus);
+  },
+};
+
+  async getPartsList() {
+    try {
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_ID}/values/パーツ在庫簿?key=${GOOGLE_API_KEY}`;
+      
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (!data.values || data.values.length <= 1) {
+        return [];
+      }
+
+      const parts = data.values.slice(1)
+        .filter(row => row && row[1])
+        .map(row => ({
+          serial: String(row[1] || '').trim(),
+          prefix: String(row[2] || '').trim(),
+          location: String(row[2] || '').trim(),
+          building: String(row[3] || '').trim(),
+          status: String(row[9] || '未処理').trim(),
+          frat: String(row[10] || '').trim(),
+          user: String(row[11] || '').trim(),
+          notes: String(row[12] || '').trim(),
+          registeredDate: String(row[10] || '').trim()
+        }));
+
+      console.log('✅ getPartsList loaded:', parts.length, 'parts');
+      return parts;
+    } catch (error) {
+      console.error('❌ getPartsList error:', error);
+      return [];
+    }
+  },
+};
