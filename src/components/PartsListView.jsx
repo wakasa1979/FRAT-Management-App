@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './PartsListView.css';
 import RegisterPartModal from './RegisterPartModal';
 import {
@@ -10,8 +10,7 @@ import {
   sendDeletionRequestEmail,
   deletePart,
   getStatusA,
-  getStatusB,
-  getSerialPrefixes
+  getStatusB
 } from '../services/sheetsService';
 
 const PartsListView = ({ currentUser, onLogout, onNavigate, locationMaster }) => {
@@ -108,51 +107,7 @@ const PartsListView = ({ currentUser, onLogout, onNavigate, locationMaster }) =>
     loadData();
   }, []);
 
-  useEffect(() => {
-    filterProducts();
-  }, [products, filterCriteria]);
-
-  // 🐛 デバッグログ：fratStatusMap の内容を確認
-  useEffect(() => {
-    console.log('🐛 DEBUG fratStatusMap:', fratStatusMap);
-    console.log('🐛 DEBUG products count:', products.length);
-    if (products.length > 0) {
-      console.log('🐛 DEBUG first product:', products[0]);
-      console.log('🐛 DEBUG first product FRAT status:', fratStatusMap[products[0].serial]);
-    }
-  }, [fratStatusMap, products]);
-
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      console.log('📚 Loading all data...');
-      const [parts, statusA, statusB] = await Promise.all([
-        fetchProductsFromSheets(),
-        getStatusA(),
-        getStatusB()
-      ]);
-
-      console.log('✅ Data loaded:', parts.length, 'parts');
-      setProducts(parts);
-      setStatusAOptions(statusA);
-      setStatusBOptions(statusB);
-
-      const fratMap = {};
-      for (const part of parts) {
-        const fratResult = await checkFratExists(part.serial);
-        fratMap[part.serial] = fratResult.exists;
-      }
-      setFratStatusMap(fratMap);
-      console.log('🐛 DEBUG Final fratStatusMap:', fratMap);
-
-      setLoading(false);
-    } catch (error) {
-      console.error('❌ Error loading data:', error);
-      setLoading(false);
-    }
-  };
-
-  const filterProducts = () => {
+  const filterProducts = useCallback(() => {
     let filtered = products.filter(p => 
       !p.shipmentTimestamp || p.shipmentTimestamp.trim().length === 0
     );
@@ -198,6 +153,50 @@ const PartsListView = ({ currentUser, onLogout, onNavigate, locationMaster }) =>
     });
 
     setFilteredProducts(filtered);
+  }, [products, filterCriteria]);
+
+  useEffect(() => {
+    filterProducts();
+  }, [products, filterCriteria, filterProducts]);
+
+  // 🐛 デバッグログ：fratStatusMap の内容を確認
+  useEffect(() => {
+    console.log('🐛 DEBUG fratStatusMap:', fratStatusMap);
+    console.log('🐛 DEBUG products count:', products.length);
+    if (products.length > 0) {
+      console.log('🐛 DEBUG first product:', products[0]);
+      console.log('🐛 DEBUG first product FRAT status:', fratStatusMap[products[0].serial]);
+    }
+  }, [fratStatusMap, products]);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      console.log('📚 Loading all data...');
+      const [parts, statusA, statusB] = await Promise.all([
+        fetchProductsFromSheets(),
+        getStatusA(),
+        getStatusB()
+      ]);
+
+      console.log('✅ Data loaded:', parts.length, 'parts');
+      setProducts(parts);
+      setStatusAOptions(statusA);
+      setStatusBOptions(statusB);
+
+      const fratMap = {};
+      for (const part of parts) {
+        const fratResult = await checkFratExists(part.serial);
+        fratMap[part.serial] = fratResult.exists;
+      }
+      setFratStatusMap(fratMap);
+      console.log('🐛 DEBUG Final fratStatusMap:', fratMap);
+
+      setLoading(false);
+    } catch (error) {
+      console.error('❌ Error loading data:', error);
+      setLoading(false);
+    }
   };
 
   const handleDetailClick = (part) => {
@@ -352,7 +351,6 @@ const PartsListView = ({ currentUser, onLogout, onNavigate, locationMaster }) =>
     setIsUpdating(true);
 
     try {
-      const userId = getUserId();
       const userName = getUserName();
 
       const result = await updateShipmentConfirmationTimestamp(
