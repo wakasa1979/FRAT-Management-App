@@ -9,7 +9,6 @@ import {
   updatePart,
   sendDeletionRequestEmail,
   deletePart,
-  getLocationMaster,
   getStatusA,
   getStatusB,
   getSerialPrefixes
@@ -34,7 +33,6 @@ const PartsListView = ({ currentUser, onLogout, onNavigate, locationMaster }) =>
   const [editFormData, setEditFormData] = useState({});
   const [statusAOptions, setStatusAOptions] = useState([]);
   const [statusBOptions, setStatusBOptions] = useState([]);
-  const [serialPrefixes, setSerialPrefixes] = useState([]);
   const [fratStatusMap, setFratStatusMap] = useState({});
   const [isUpdating, setIsUpdating] = useState(false);
 
@@ -128,18 +126,16 @@ const PartsListView = ({ currentUser, onLogout, onNavigate, locationMaster }) =>
     setLoading(true);
     try {
       console.log('📚 Loading all data...');
-      const [parts, statusA, statusB, prefixes] = await Promise.all([
+      const [parts, statusA, statusB] = await Promise.all([
         fetchProductsFromSheets(),
         getStatusA(),
-        getStatusB(),
-        getSerialPrefixes()
+        getStatusB()
       ]);
 
       console.log('✅ Data loaded:', parts.length, 'parts');
       setProducts(parts);
       setStatusAOptions(statusA);
       setStatusBOptions(statusB);
-      setSerialPrefixes(prefixes);
 
       const fratMap = {};
       for (const part of parts) {
