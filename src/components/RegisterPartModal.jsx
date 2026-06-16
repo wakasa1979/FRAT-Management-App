@@ -172,6 +172,7 @@ const RegisterPartModal = ({ locationMaster, onSubmit, onCancel, isLoading, curr
         handleClear();
         setErrors({});
       } else {
+        alert('❌ ' + (result.message || '登録に失敗しました'));
         setErrors({ submit: result.message || '登録に失敗しました' });
       }
     } catch (error) {
