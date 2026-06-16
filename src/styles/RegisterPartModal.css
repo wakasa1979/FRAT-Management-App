@@ -17,13 +17,14 @@
   background: white;
   border: 4px solid #00897b;
   border-radius: 20px;
-  padding: 10px;
+  padding: 0;
   width: 100%;
   max-width: 100%;
   box-shadow: 0 20px 60px rgba(0, 137, 123, 0.2);
   animation: slideUp 0.4s ease-out;
   max-height: 95vh;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 @keyframes slideUp {
@@ -32,10 +33,11 @@
 }
 
 .keyboard-header {
-  margin-bottom: 8px;
+  margin: 0;
+  padding: 10px;
   text-align: center;
   border-bottom: 3px solid #00897b;
-  padding-bottom: 6px;
+  flex-shrink: 0;
 }
 
 .keyboard-header h1 {
@@ -45,8 +47,22 @@
   color: #00897b;
 }
 
+.keyboard-header .user-info {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #666;
+}
+
 .form-section {
   margin-bottom: 6px;
+  padding: 0 10px;
+}
+
+.keyboard-container > div:first-of-type {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 0;
 }
 
 .section-label {
@@ -321,6 +337,7 @@
   text-align: left;
   font-weight: 700;
   min-height: 40px;
+  box-sizing: border-box;
 }
 
 .custom-dropdown-toggle:hover:not(:disabled) {
@@ -334,29 +351,28 @@
 }
 
 .custom-dropdown-menu {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
+  position: fixed;
   background: white;
   border: 2px solid #00897b;
-  border-top: none;
-  border-radius: 0 0 8px 8px;
-  margin-top: -2px;
-  max-height: 200px;
+  border-radius: 8px;
+  max-height: 250px;
   overflow-y: auto;
-  z-index: 2001;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+  z-index: 2500;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+  min-width: 200px;
 }
 
 .custom-dropdown-item {
   font-size: 14px;
-  padding: 8px;
+  padding: 10px 12px;
   color: #333;
   cursor: pointer;
   transition: all 0.2s ease;
   border-bottom: 1px solid #eee;
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .custom-dropdown-item:hover {
@@ -382,6 +398,8 @@
   padding: 8px;
   border-radius: 6px;
   margin-bottom: 8px;
+  margin-left: 10px;
+  margin-right: 10px;
 }
 
 .error-alert .error-message {
@@ -393,7 +411,10 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 6px;
-  margin-top: 8px;
+  padding: 10px;
+  border-top: 2px solid #eee;
+  flex-shrink: 0;
+  background: white;
 }
 
 .btn-submit,
@@ -407,6 +428,7 @@
   transition: all 0.2s ease;
   text-transform: uppercase;
   min-height: 44px;
+  box-sizing: border-box;
 }
 
 .btn-submit {
@@ -455,7 +477,7 @@
 }
 
 .notes-input {
-  width: 100%;
+  width: calc(100% - 20px);
   font-size: 12px;
   padding: 8px;
   border: 2px solid #00897b;
@@ -466,6 +488,7 @@
   box-sizing: border-box;
   color: #333;
   background: white;
+  margin: 0 10px;
 }
 
 .notes-input:focus {
@@ -481,7 +504,7 @@
 }
 
 .user-info {
-  display: none;
+  display: block;
 }
 
 .serial-hint {

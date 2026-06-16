@@ -203,227 +203,229 @@ const RegisterPartModal = ({ locationMaster, onSubmit, onCancel, isLoading, curr
           )}
         </div>
 
-        <div className="form-section">
-          <label className="section-label">シリアル頭文字</label>
-          <div className="custom-dropdown-wrapper">
-            <button
-              className="custom-dropdown-toggle"
-              onClick={() => setPrefixDropdownOpen(!prefixDropdownOpen)}
-              disabled={isProcessing}
-            >
-              {serialPrefix || 'プルダウンで選択'}
-            </button>
-            {prefixDropdownOpen && (
-              <div className="custom-dropdown-menu">
-                {serialPrefixes.length > 0 ? (
-                  serialPrefixes.map((prefix, index) => (
+        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+          <div className="form-section">
+            <label className="section-label">シリアル頭文字</label>
+            <div className="custom-dropdown-wrapper">
+              <button
+                className="custom-dropdown-toggle"
+                onClick={() => setPrefixDropdownOpen(!prefixDropdownOpen)}
+                disabled={isProcessing}
+              >
+                {serialPrefix || 'プルダウンで選択'}
+              </button>
+              {prefixDropdownOpen && (
+                <div className="custom-dropdown-menu" style={{ top: `${document.querySelector('.custom-dropdown-toggle')?.getBoundingClientRect().bottom}px`, left: `${document.querySelector('.custom-dropdown-toggle')?.getBoundingClientRect().left}px`, width: `${document.querySelector('.custom-dropdown-toggle')?.getBoundingClientRect().width}px` }}>
+                  {serialPrefixes.length > 0 ? (
+                    serialPrefixes.map((prefix, index) => (
+                      <div
+                        key={index}
+                        className="custom-dropdown-item"
+                        onClick={() => {
+                          setSerialPrefix(prefix);
+                          setPrefixDropdownOpen(false);
+                          if (errors.serialPrefix) setErrors({ ...errors, serialPrefix: '' });
+                        }}
+                      >
+                        {prefix}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="custom-dropdown-item">読み込み中...</div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="form-section">
+            <label className="section-label">シリアル番号</label>
+            <div className="serial-display" onClick={() => setDirectInputOpen(true)}>
+              <div className="serial-input">
+                {fullSerial || 'ここにシリアルが出る'}
+              </div>
+              <div className="serial-hint">(タップして直接入力)</div>
+            </div>
+
+            {directInputOpen && (
+              <div className="direct-input-overlay">
+                <div className="direct-input-box">
+                  <input
+                    type="text"
+                    className="direct-input-field"
+                    value={directInputValue}
+                    onChange={(e) => setDirectInputValue(e.target.value.toUpperCase())}
+                    placeholder="シリアルを入力"
+                    autoFocus
+                  />
+                  <div className="direct-input-buttons">
+                    <button className="btn-confirm-input" onClick={handleDirectInputSubmit}>確定</button>
+                    <button className="btn-cancel-input" onClick={() => setDirectInputOpen(false)}>キャンセル</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="number-pad">
+              <div className="pad-row">
+                <button className="pad-btn" onClick={() => handleNumberClick('1')} disabled={isProcessing}>1</button>
+                <button className="pad-btn" onClick={() => handleNumberClick('2')} disabled={isProcessing}>2</button>
+                <button className="pad-btn" onClick={() => handleNumberClick('3')} disabled={isProcessing}>3</button>
+                <button className="pad-btn" onClick={() => handleNumberClick('4')} disabled={isProcessing}>4</button>
+                <button className="pad-btn" onClick={() => handleNumberClick('5')} disabled={isProcessing}>5</button>
+              </div>
+              <div className="pad-row">
+                <button className="pad-btn" onClick={() => handleNumberClick('6')} disabled={isProcessing}>6</button>
+                <button className="pad-btn" onClick={() => handleNumberClick('7')} disabled={isProcessing}>7</button>
+                <button className="pad-btn" onClick={() => handleNumberClick('8')} disabled={isProcessing}>8</button>
+                <button className="pad-btn" onClick={() => handleNumberClick('9')} disabled={isProcessing}>9</button>
+                <button className="pad-btn" onClick={() => handleNumberClick('0')} disabled={isProcessing}>0</button>
+              </div>
+            </div>
+
+            <label className="section-label" style={{ marginTop: '16px' }}>アルファベット末尾</label>
+            <div className="suffix-buttons">
+              {suffixOptions.map((suffix) => (
+                <button
+                  key={suffix}
+                  className={`suffix-btn ${serialSuffix === suffix ? 'active' : ''}`}
+                  onClick={() => handleSuffixClick(suffix)}
+                  disabled={isProcessing}
+                >
+                  {suffix || 'なし'}
+                </button>
+              ))}
+            </div>
+
+            <div className="action-buttons">
+              <button className="btn-backspace" onClick={handleBackspace} disabled={isProcessing}>← BACKSPACE</button>
+              <button className="btn-clear" onClick={handleClear} disabled={isProcessing}>クリア</button>
+            </div>
+          </div>
+
+          <div className="form-section">
+            <label className="section-label">場所</label>
+            <div className="custom-dropdown-wrapper">
+              <button
+                className="custom-dropdown-toggle"
+                onClick={() => setLocationDropdownOpen(!locationDropdownOpen)}
+                disabled={isProcessing}
+              >
+                {location || 'プルダウンで選択'}
+              </button>
+              {locationDropdownOpen && locationMaster && locationMaster.length > 0 && (
+                <div className="custom-dropdown-menu" style={{ top: `${document.querySelector('.custom-dropdown-toggle')?.getBoundingClientRect().bottom}px`, left: `${document.querySelector('.custom-dropdown-toggle')?.getBoundingClientRect().left}px`, width: `${document.querySelector('.custom-dropdown-toggle')?.getBoundingClientRect().width}px` }}>
+                  {locationMaster.map((item, index) => (
                     <div
                       key={index}
                       className="custom-dropdown-item"
                       onClick={() => {
-                        setSerialPrefix(prefix);
-                        setPrefixDropdownOpen(false);
-                        if (errors.serialPrefix) setErrors({ ...errors, serialPrefix: '' });
+                        if (typeof item === 'object' && item.display) {
+                          handleLocationSelect(item);
+                        } else {
+                          setLocation(item);
+                          setLocationDropdownOpen(false);
+                        }
                       }}
                     >
-                      {prefix}
+                      {typeof item === 'object' && item.display ? item.display : item}
                     </div>
-                  ))
-                ) : (
-                  <div className="custom-dropdown-item">読み込み中...</div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="form-section">
-          <label className="section-label">シリアル番号</label>
-          <div className="serial-display" onClick={() => setDirectInputOpen(true)}>
-            <div className="serial-input">
-              {fullSerial || 'ここにシリアルが出る'}
-            </div>
-            <div className="serial-hint">(タップして直接入力)</div>
-          </div>
-
-          {directInputOpen && (
-            <div className="direct-input-overlay">
-              <div className="direct-input-box">
-                <input
-                  type="text"
-                  className="direct-input-field"
-                  value={directInputValue}
-                  onChange={(e) => setDirectInputValue(e.target.value.toUpperCase())}
-                  placeholder="シリアルを入力"
-                  autoFocus
-                />
-                <div className="direct-input-buttons">
-                  <button className="btn-confirm-input" onClick={handleDirectInputSubmit}>確定</button>
-                  <button className="btn-cancel-input" onClick={() => setDirectInputOpen(false)}>キャンセル</button>
+                  ))}
+                  <div
+                    className="custom-dropdown-item"
+                    onClick={handleOpenNewLocationDialog}
+                    style={{
+                      backgroundColor: '#e8f5e9',
+                      color: '#2e7d32',
+                      fontWeight: 'bold',
+                      borderTop: '2px solid #c8e6c9'
+                    }}
+                  >
+                    ➕ 新規場所を登録
+                  </div>
                 </div>
-              </div>
-            </div>
-          )}
-
-          <div className="number-pad">
-            <div className="pad-row">
-              <button className="pad-btn" onClick={() => handleNumberClick('1')} disabled={isProcessing}>1</button>
-              <button className="pad-btn" onClick={() => handleNumberClick('2')} disabled={isProcessing}>2</button>
-              <button className="pad-btn" onClick={() => handleNumberClick('3')} disabled={isProcessing}>3</button>
-              <button className="pad-btn" onClick={() => handleNumberClick('4')} disabled={isProcessing}>4</button>
-              <button className="pad-btn" onClick={() => handleNumberClick('5')} disabled={isProcessing}>5</button>
-            </div>
-            <div className="pad-row">
-              <button className="pad-btn" onClick={() => handleNumberClick('6')} disabled={isProcessing}>6</button>
-              <button className="pad-btn" onClick={() => handleNumberClick('7')} disabled={isProcessing}>7</button>
-              <button className="pad-btn" onClick={() => handleNumberClick('8')} disabled={isProcessing}>8</button>
-              <button className="pad-btn" onClick={() => handleNumberClick('9')} disabled={isProcessing}>9</button>
-              <button className="pad-btn" onClick={() => handleNumberClick('0')} disabled={isProcessing}>0</button>
+              )}
             </div>
           </div>
 
-          <label className="section-label" style={{ marginTop: '16px' }}>アルファベット末尾</label>
-          <div className="suffix-buttons">
-            {suffixOptions.map((suffix) => (
+          <div className="form-section">
+            <label className="section-label">ステータスA</label>
+            <div className="custom-dropdown-wrapper">
               <button
-                key={suffix}
-                className={`suffix-btn ${serialSuffix === suffix ? 'active' : ''}`}
-                onClick={() => handleSuffixClick(suffix)}
+                className="custom-dropdown-toggle"
+                onClick={() => setStatusADropdownOpen(!statusADropdownOpen)}
                 disabled={isProcessing}
               >
-                {suffix || 'なし'}
+                {statusA || 'プルダウンで選択'}
               </button>
-            ))}
-          </div>
-
-          <div className="action-buttons">
-            <button className="btn-backspace" onClick={handleBackspace} disabled={isProcessing}>← BACKSPACE</button>
-            <button className="btn-clear" onClick={handleClear} disabled={isProcessing}>クリア</button>
-          </div>
-        </div>
-
-        <div className="form-section">
-          <label className="section-label">場所</label>
-          <div className="custom-dropdown-wrapper">
-            <button
-              className="custom-dropdown-toggle"
-              onClick={() => setLocationDropdownOpen(!locationDropdownOpen)}
-              disabled={isProcessing}
-            >
-              {location || 'プルダウンで選択'}
-            </button>
-            {locationDropdownOpen && locationMaster && locationMaster.length > 0 && (
-              <div className="custom-dropdown-menu">
-                {locationMaster.map((item, index) => (
-                  <div
-                    key={index}
-                    className="custom-dropdown-item"
-                    onClick={() => {
-                      if (typeof item === 'object' && item.display) {
-                        handleLocationSelect(item);
-                      } else {
-                        setLocation(item);
-                        setLocationDropdownOpen(false);
-                      }
-                    }}
-                  >
-                    {typeof item === 'object' && item.display ? item.display : item}
-                  </div>
-                ))}
-                <div
-                  className="custom-dropdown-item"
-                  onClick={handleOpenNewLocationDialog}
-                  style={{
-                    backgroundColor: '#e8f5e9',
-                    color: '#2e7d32',
-                    fontWeight: 'bold',
-                    borderTop: '2px solid #c8e6c9'
-                  }}
-                >
-                  ➕ 新規場所を登録
+              {statusADropdownOpen && (
+                <div className="custom-dropdown-menu" style={{ top: `${document.querySelector('.custom-dropdown-toggle')?.getBoundingClientRect().bottom}px`, left: `${document.querySelector('.custom-dropdown-toggle')?.getBoundingClientRect().left}px`, width: `${document.querySelector('.custom-dropdown-toggle')?.getBoundingClientRect().width}px` }}>
+                  {statusAOptions.map((option, index) => (
+                    <div
+                      key={index}
+                      className="custom-dropdown-item"
+                      onClick={() => {
+                        setStatusA(option);
+                        setStatusADropdownOpen(false);
+                      }}
+                    >
+                      {option}
+                    </div>
+                  ))}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
 
-        <div className="form-section">
-          <label className="section-label">ステータスA</label>
-          <div className="custom-dropdown-wrapper">
-            <button
-              className="custom-dropdown-toggle"
-              onClick={() => setStatusADropdownOpen(!statusADropdownOpen)}
+          <div className="form-section">
+            <label className="section-label">ステータスB</label>
+            <div className="custom-dropdown-wrapper">
+              <button
+                className="custom-dropdown-toggle"
+                onClick={() => setStatusBDropdownOpen(!statusBDropdownOpen)}
+                disabled={isProcessing}
+              >
+                {statusB || 'プルダウンで選択'}
+              </button>
+              {statusBDropdownOpen && (
+                <div className="custom-dropdown-menu" style={{ top: `${document.querySelector('.custom-dropdown-toggle')?.getBoundingClientRect().bottom}px`, left: `${document.querySelector('.custom-dropdown-toggle')?.getBoundingClientRect().left}px`, width: `${document.querySelector('.custom-dropdown-toggle')?.getBoundingClientRect().width}px` }}>
+                  {statusBOptions.map((option, index) => (
+                    <div
+                      key={index}
+                      className={`custom-dropdown-item ${isStatusBDisabled(option) ? 'disabled-item' : ''}`}
+                      onClick={() => {
+                        if (!isStatusBDisabled(option)) {
+                          setStatusB(option);
+                          setStatusBDropdownOpen(false);
+                        }
+                      }}
+                    >
+                      {option}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="form-section">
+            <label className="section-label">備考（任意）</label>
+            <textarea
+              className="notes-input"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="備考があればここに入力してください"
               disabled={isProcessing}
-            >
-              {statusA || 'プルダウンで選択'}
-            </button>
-            {statusADropdownOpen && (
-              <div className="custom-dropdown-menu">
-                {statusAOptions.map((option, index) => (
-                  <div
-                    key={index}
-                    className="custom-dropdown-item"
-                    onClick={() => {
-                      setStatusA(option);
-                      setStatusADropdownOpen(false);
-                    }}
-                  >
-                    {option}
-                  </div>
-                ))}
-              </div>
-            )}
+              rows="3"
+            />
           </div>
-        </div>
 
-        <div className="form-section">
-          <label className="section-label">ステータスB</label>
-          <div className="custom-dropdown-wrapper">
-            <button
-              className="custom-dropdown-toggle"
-              onClick={() => setStatusBDropdownOpen(!statusBDropdownOpen)}
-              disabled={isProcessing}
-            >
-              {statusB || 'プルダウンで選択'}
-            </button>
-            {statusBDropdownOpen && (
-              <div className="custom-dropdown-menu">
-                {statusBOptions.map((option, index) => (
-                  <div
-                    key={index}
-                    className={`custom-dropdown-item ${isStatusBDisabled(option) ? 'disabled-item' : ''}`}
-                    onClick={() => {
-                      if (!isStatusBDisabled(option)) {
-                        setStatusB(option);
-                        setStatusBDropdownOpen(false);
-                      }
-                    }}
-                  >
-                    {option}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          {errors.submit && (
+            <div className="error-alert">
+              <p className="error-message">⚠️ {errors.submit}</p>
+            </div>
+          )}
         </div>
-
-        <div className="form-section">
-          <label className="section-label">備考（任意）</label>
-          <textarea
-            className="notes-input"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="備考があればここに入力してください"
-            disabled={isProcessing}
-            rows="3"
-          />
-        </div>
-
-        {errors.submit && (
-          <div className="error-alert">
-            <p className="error-message">⚠️ {errors.submit}</p>
-          </div>
-        )}
 
         <div className="action-buttons-main">
           <button
